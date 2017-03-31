@@ -14,13 +14,13 @@
 
 
 
-// auto Normal = [] (double s)
-// {
-//  return [s] (double x)
-//  {
-//      return std::sqrt (1 / (2 * M_PI * s * s)) * std::exp (-x * x / (2 * s * s));
-//  };
-// };
+auto Normal = [] (double s)
+{
+    return [s] (double x)
+    {
+        return std::sqrt (1 / (2 * M_PI * s * s)) * std::exp (-x * x / (2 * s * s));
+    };
+};
 
 
 auto Maxwellian = [] (double T)
@@ -42,9 +42,47 @@ auto Maxwellian = [] (double T)
 
 
 
+int testHistogram()
+{
+    std::cout.flags (std::ios::fixed | std::ios::showpos);
+    std::cout.precision (10);
+
+    std::uniform_real_distribution<double> uniform (0, 1);
+    std::mt19937 engine;
+    std::vector<double> samples;
+
+    SimpsonRule simpson;
+    GaussianQuadrature gauss (8);
+
+    TabulatedFunction tabulatedCDF1 = TabulatedFunction::createTabulatedIntegral (
+        Normal (1), -5, 5, 256, TabulatedFunction::useEqualBinWidthsLinear, gauss, 1e-12, true);
+
+    TabulatedFunction tabulatedCDF2 = TabulatedFunction::createTabulatedIntegral (
+        Normal (1), -5, 5, 4096, TabulatedFunction::useEqualBinMasses, gauss, 1e-12, true);
+
+    auto inverseCDF = tabulatedCDF2.getInverse();
+
+    for (int n = 0; n < 100000000; ++n)
+    {
+        double F = uniform (engine);
+        samples.push_back (inverseCDF (F));
+    }
+
+    TabulatedFunction hist = TabulatedFunction::makeHistogram (samples, 128,
+        TabulatedFunction::useEqualBinWidthsLinear, true, true, true);
+
+    hist.outputTable (std::cout);
+
+    // tabulatedCDF2.outputTable (std::cout);
+
+    return 0;
+}
+
     
 int main (int argc, char **argv)
 {
+    return testHistogram();
+
     SimpsonRule simpson;
     GaussianQuadrature gauss (8);
 

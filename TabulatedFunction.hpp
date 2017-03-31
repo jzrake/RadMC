@@ -47,6 +47,23 @@ public:
         QuadratureRule& quadratureRule, double accuracy=1e-14, bool normalize=false);
 
     /**
+    Create a tabulated function that is a histogram of samples. If density is
+    true, then the table contains the mass divided by the bin width, dF / dx,
+    rather than the mass dF in the bin. If normalize is true, then the total
+    mass of the histogram will be \int {dF} = 1. When shift is set to true,
+    the table will contain the bin centers and associated masses (or
+    densities), and the table size will be numberOfBins. Otherwise if shift is
+    set to false, the table will have one more rows than the numberOfBins
+    parameter, with the first column holding the location of bin edges, and
+    the second column holding the bin masses to the left of the corresponding
+    edge, and to the right of the one before it (hence the mass in the zeroth
+    bin will always be zero).
+    */
+    static TabulatedFunction makeHistogram (const std::vector<double>& samples,
+        int numberOfBins, BinSpacingMode spacingMode,
+        bool density=false, bool normalize=false, bool shift=false);
+
+    /**
     Look up the function value y(x), using linear interpolation between bins.
     */
     double lookupFunctionValue (double x);

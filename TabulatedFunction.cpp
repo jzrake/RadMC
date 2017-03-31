@@ -1,5 +1,6 @@
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 #include "TabulatedFunction.hpp"
 #include "CubicInterpolant.hpp"
 #include "RootBracketingSolver.hpp"
@@ -14,7 +15,8 @@ spacingMode (spacingMode)
 
 }
 
-TabulatedFunction TabulatedFunction::createTabulatedIntegral (std::function<double(double)> f,
+TabulatedFunction TabulatedFunction::createTabulatedIntegral (
+    std::function<double(double)> f,
     double x0, double x1, int numberOfBins, BinSpacingMode spacingMode,
     QuadratureRule& quadratureRule, double accuracy, bool normalize)
 {
@@ -84,6 +86,118 @@ TabulatedFunction TabulatedFunction::createTabulatedIntegral (std::function<doub
     }
 
     return TabulatedFunction (argumentValue, cumulativeMass, spacingMode);
+}
+
+TabulatedFunction TabulatedFunction::makeHistogram (
+    const std::vector<double>& samples,
+    int numberOfBins, BinSpacingMode spacingMode,
+    bool density, bool normalize, bool shift)
+{
+    if (samples.size() == 0)
+    {
+        return TabulatedFunction (std::vector<double>(), std::vector<double>(), useArbitraryBinSpacing);
+    }
+
+    double x0 = *std::min_element (samples.begin(), samples.end()) - 1e-14; // To ensure we catch the first and last samples
+    double x1 = *std::max_element (samples.begin(), samples.end()) + 1e-14;
+
+    std::vector<double> binEdges;
+    std::vector<double> binValues (numberOfBins + 1, 0.0);
+
+    switch (spacingMode)
+    {
+        case useArbitraryBinSpacing:
+        case useEqualBinMasses:
+        {
+            throw std::runtime_error ("Histogram bin spacing must be linear or logarithmic");
+        }
+        case useEqualBinWidthsLinear:
+        {
+            for (int n = 0; n < numberOfBins + 1; ++n)
+            {
+                binEdges.push_back (x0 + n * (x1 - x0) / numberOfBins);
+            }
+            break;
+        }
+        case useEqualBinWidthsLogarithmic:
+        {
+            for (int n = 0; n < numberOfBins + 1; ++n)
+            {
+                binEdges.push_back (x0 * std::pow (x1 / x0, double (n) / numberOfBins));
+            }
+            break;
+        }
+    }
+
+    // Returns the index of the bin edge to the right of the sample position
+    // (lowest possible value is 1).
+
+    auto findBinIndex = [=] (double x)
+    {
+        switch (spacingMode)
+        {
+            case useEqualBinWidthsLinear:
+            {
+                double x0 = binEdges.front();
+                double x1 = binEdges.back();
+                return 1 + int ((x - x0) / (x1 - x0) * (binEdges.size() - 1));
+            }
+            case useEqualBinWidthsLogarithmic:
+            {
+                double L0 = std::log (binEdges.front());
+                double L1 = std::log (binEdges.back());
+                return 1 + int ((std::log (x) - L0) / (L1 - L0) * (binEdges.size() - 1));
+            }
+            default:
+            {
+                return 0;
+            }
+        }
+    };
+
+    double sampleWeight = normalize ? 1.0 / samples.size() : 1.0;
+
+    for (int n = 0; n < samples.size(); ++n)
+    {
+        int binIndex = findBinIndex (samples[n]);
+
+        if (binIndex <= 0 || binValues.size() <= binIndex)
+        {
+            throw std::runtime_error ("TabulatedFunction got out-of-range x value");
+        }
+
+        if (density)
+        {
+            binValues[binIndex] += sampleWeight / (binEdges[binIndex] - binEdges[binIndex - 1]);
+        }
+        else
+        {
+            binValues[binIndex] += sampleWeight;
+        }
+    }
+
+    if (shift)
+    {
+        std::vector<double> xdata;
+        std::vector<double> ydata;
+
+        for (int n = 0; n < binEdges.size() - 1; ++n)
+        {
+            xdata.push_back (0.5 * (binEdges[n] + binEdges[n + 1]));
+            ydata.push_back (binValues[n + 1]);
+        }
+
+        // Even spacing would be OK to assume if spacing was uniform and
+        // linear, but log spacing would not be preserved because of the bin
+        // midpoint thing. Fast lookups on this table are not going to be
+        // needed anyway, as it's probably just going to be printed or saved.
+        // So we'll just play it safe and use arbitrary spacing here.
+        return TabulatedFunction (xdata, ydata, useArbitraryBinSpacing);
+    }
+    else
+    {
+        return TabulatedFunction (binEdges, binValues, spacingMode);
+    }
 }
 
 double TabulatedFunction::lookupFunctionValue (double x)
