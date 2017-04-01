@@ -140,39 +140,39 @@ TabulatedFunction TabulatedFunction::makeHistogram (
             {
                 double x0 = binEdges.front();
                 double x1 = binEdges.back();
-                return 1 + int ((x - x0) / (x1 - x0) * (binEdges.size() - 1));
+                return 0 + int ((x - x0) / (x1 - x0) * (binEdges.size() - 1));
             }
             case useEqualBinWidthsLogarithmic:
             {
                 double L0 = std::log (binEdges.front());
                 double L1 = std::log (binEdges.back());
-                return 1 + int ((std::log (x) - L0) / (L1 - L0) * (binEdges.size() - 1));
+                return 0 + int ((std::log (x) - L0) / (L1 - L0) * (binEdges.size() - 1));
             }
             default:
             {
-                return 0;
+                return -1;
             }
         }
     };
 
-    double sampleWeight = normalize ? 1.0 / samples.size() : 1.0;
+    double sampleMass = normalize ? 1.0 / samples.size() : 1.0;
 
     for (int n = 0; n < samples.size(); ++n)
     {
         int binIndex = findBinIndex (samples[n]);
 
-        if (binIndex <= 0 || binValues.size() <= binIndex)
+        if (binIndex < 0 || binIndex >= binEdges.size() - 1)
         {
             throw std::runtime_error ("TabulatedFunction got out-of-range x value");
         }
 
         if (density)
         {
-            binValues[binIndex] += sampleWeight / (binEdges[binIndex] - binEdges[binIndex - 1]);
+            binValues[binIndex] += sampleMass / (binEdges[binIndex + 1] - binEdges[binIndex]);
         }
         else
         {
-            binValues[binIndex] += sampleWeight;
+            binValues[binIndex] += sampleMass;
         }
     }
 
@@ -184,7 +184,7 @@ TabulatedFunction TabulatedFunction::makeHistogram (
         for (int n = 0; n < binEdges.size() - 1; ++n)
         {
             xdata.push_back (0.5 * (binEdges[n] + binEdges[n + 1]));
-            ydata.push_back (binValues[n + 1]);
+            ydata.push_back (binValues[n]);
         }
 
         // Even spacing would be OK to assume if spacing was
