@@ -187,11 +187,12 @@ TabulatedFunction TabulatedFunction::makeHistogram (
             ydata.push_back (binValues[n + 1]);
         }
 
-        // Even spacing would be OK to assume if spacing was uniform and
-        // linear, but log spacing would not be preserved because of the bin
-        // midpoint thing. Fast lookups on this table are not going to be
-        // needed anyway, as it's probably just going to be printed or saved.
-        // So we'll just play it safe and use arbitrary spacing here.
+        // Even spacing would be OK to assume if spacing was
+        // useEqualBinWidthsLinear, but even log spacing would not be
+        // preserved because of the bin midpoint thing. Lookups on a shifted
+        // histogram are unlikely to be used anyway; it's probably just going
+        // to be printed or saved. So we'll play it safe and use arbitrary
+        // spacing here.
         return TabulatedFunction (xdata, ydata, useArbitraryBinSpacing);
     }
     else
@@ -209,14 +210,8 @@ double TabulatedFunction::lookupFunctionValue (double x)
             case useArbitraryBinSpacing:
             case useEqualBinMasses:
             {
-                for (int n = 1; n < xdata.size(); ++n)
-                {
-                    if (xdata[n - 1] < x && x <= xdata[n])
-                    {
-                        return n;
-                    }
-                }
-                return 0;
+                auto lower = std::lower_bound (xdata.begin(), xdata.end(), x);
+                return int (lower - xdata.begin());
             }
             case useEqualBinWidthsLinear:
             {
@@ -256,14 +251,8 @@ double TabulatedFunction::lookupArgumentValue (double y)
             case useEqualBinWidthsLinear:
             case useEqualBinWidthsLogarithmic:
             {
-                for (int n = 1; n < ydata.size(); ++n)
-                {
-                    if (ydata[n - 1] < y && y <= ydata[n])
-                    {
-                        return n;
-                    }
-                }
-                return 0;
+                auto lower = std::lower_bound (ydata.begin(), ydata.end(), y);
+                return int (lower - ydata.begin());
             }
             case useEqualBinMasses:
             {

@@ -54,26 +54,26 @@ int testHistogram()
     SimpsonRule simpson;
     GaussianQuadrature gauss (8);
 
-    TabulatedFunction tabulatedCDF1 = TabulatedFunction::createTabulatedIntegral (
-        Normal (1), -5, 5, 256, TabulatedFunction::useEqualBinWidthsLinear, gauss, 1e-12, true);
+    // TabulatedFunction tabulatedCDF1 = TabulatedFunction::createTabulatedIntegral (
+    //     Maxwellian (1), 0, 5, 256, TabulatedFunction::useEqualBinWidthsLinear, gauss, 1e-12, true);
 
     TabulatedFunction tabulatedCDF2 = TabulatedFunction::createTabulatedIntegral (
-        Normal (1), -5, 5, 4096, TabulatedFunction::useEqualBinMasses, gauss, 1e-12, true);
+        Maxwellian (1), 0, 5, 256, TabulatedFunction::useEqualBinMasses, gauss, 1e-12, true);
 
     auto inverseCDF = tabulatedCDF2.getInverse();
 
-    for (int n = 0; n < 100000000; ++n)
+    for (int n = 0; n < 1<<24; ++n)
     {
         double F = uniform (engine);
         samples.push_back (inverseCDF (F));
     }
 
-    TabulatedFunction hist = TabulatedFunction::makeHistogram (samples, 128,
-        TabulatedFunction::useEqualBinWidthsLinear, true, true, true);
+    TabulatedFunction hist = TabulatedFunction::makeHistogram (samples, 256,
+        TabulatedFunction::useEqualBinWidthsLinear, true, true, false);
 
     hist.outputTable (std::cout);
 
-    // tabulatedCDF2.outputTable (std::cout);
+    //tabulatedCDF1.outputTable (std::cout);
 
     return 0;
 }
