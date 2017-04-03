@@ -18,7 +18,7 @@ spacingMode (spacingMode)
 TabulatedFunction TabulatedFunction::createTabulatedIntegral (
     std::function<double(double)> f,
     double x0, double x1, int numberOfBins, BinSpacingMode spacingMode,
-    QuadratureRule& quadratureRule, double accuracy, bool normalize)
+    const QuadratureRule& quadratureRule, double accuracy, bool normalize)
 {
     const double totalMass = quadratureRule.computeDefiniteIntegral (f, x0, x1, accuracy);
 
@@ -45,7 +45,7 @@ TabulatedFunction TabulatedFunction::createTabulatedIntegral (
 
                 auto massOfBinGivenEndpoint = [&] (double b)
                 {
-                    return quadratureRule.computeDefiniteIntegral (f, a, b, accuracy);
+                    return quadratureRule.computeDefiniteIntegral (f, a, b, accuracy); // PERF
                 };
 
                 RootBracketingSolver solver (massOfBinGivenEndpoint);
@@ -203,15 +203,20 @@ TabulatedFunction TabulatedFunction::makeHistogram (
 
 double TabulatedFunction::lookupFunctionValue (double x)
 {
-    auto findBinIndex = [=] ()
+    auto findBinIndex = [=] () -> int
     {
         switch (spacingMode)
         {
             case useArbitraryBinSpacing:
             case useEqualBinMasses:
             {
+                if (x == xdata.front())
+                {
+                    return 1;
+                }
+
                 auto lower = std::lower_bound (xdata.begin(), xdata.end(), x);
-                return int (lower - xdata.begin());
+                return lower - xdata.begin();
             }
             case useEqualBinWidthsLinear:
             {
@@ -243,7 +248,7 @@ double TabulatedFunction::lookupFunctionValue (double x)
 
 double TabulatedFunction::lookupArgumentValue (double y)
 {
-    auto findBinIndex = [=] ()
+    auto findBinIndex = [=] () -> int
     {
         switch (spacingMode)
         {
@@ -251,8 +256,13 @@ double TabulatedFunction::lookupArgumentValue (double y)
             case useEqualBinWidthsLinear:
             case useEqualBinWidthsLogarithmic:
             {
+                if (y == ydata.front())
+                {
+                    return 1;
+                }
+
                 auto lower = std::lower_bound (ydata.begin(), ydata.end(), y);
-                return int (lower - ydata.begin());
+                return lower - ydata.begin();
             }
             case useEqualBinMasses:
             {

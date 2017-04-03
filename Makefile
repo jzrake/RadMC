@@ -3,7 +3,7 @@
 SRC := $(filter-out main.cpp test.cpp, $(wildcard *.cpp))
 HDR := $(wildcard *.hpp)
 OBJ := $(SRC:.cpp=.o)
-CFLAGS = -Wall -O3
+CFLAGS = -Wall -O0 -g
 
 
 %.o : %.cpp $(HDR)

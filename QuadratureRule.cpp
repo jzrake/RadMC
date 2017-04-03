@@ -6,7 +6,8 @@
 
 
 // ============================================================================
-double QuadratureRule::integratePartitioned (std::function<double (double)> f, double x0, double x1, int numberOfBins)
+double QuadratureRule::integratePartitioned (std::function<double (double)> f, double x0, double x1,
+    int numberOfBins) const
 {
     double dx = (x1 - x0) / numberOfBins;
     double x = x0;
@@ -25,13 +26,15 @@ double QuadratureRule::integratePartitioned (std::function<double (double)> f, d
     return F;
 }
 
-double QuadratureRule::computeDefiniteIntegral (std::function<double (double)> f, double x0, double x1, double accuracy)
+double QuadratureRule::computeDefiniteIntegral (std::function<double (double)> f, double x0, double x1,
+    double accuracy) const
 {
     EvaluationDetails details;
     return computeDefiniteIntegral (f, x0, x1, accuracy, details);
 }
 
-double QuadratureRule::computeDefiniteIntegral (std::function<double (double)> f, double x0, double x1, double accuracy, EvaluationDetails& details)
+double QuadratureRule::computeDefiniteIntegral (std::function<double (double)> f, double x0, double x1,
+    double accuracy, EvaluationDetails& details) const
 {
     int N = 1;
     double F0;
@@ -63,7 +66,7 @@ double QuadratureRule::computeDefiniteIntegral (std::function<double (double)> f
 
 
 // ============================================================================
-double ForwardEulerRule::integrate (std::function<double (double)> f, double a, double b)
+double ForwardEulerRule::integrate (std::function<double (double)> f, double a, double b)const
 {
     return (b - a) * f(a);
 }
@@ -72,7 +75,7 @@ double ForwardEulerRule::integrate (std::function<double (double)> f, double a, 
 
 
 // ============================================================================
-double SimpsonRule::integrate (std::function<double (double)> f, double a, double b)
+double SimpsonRule::integrate (std::function<double (double)> f, double a, double b)const
 {
     return (b - a) / 6 * (f(a) + 4 * f((a + b) / 2) + f(b));
 }
@@ -84,7 +87,7 @@ double SimpsonRule::integrate (std::function<double (double)> f, double a, doubl
 class GaussianQuadrature::Implementation
 {
 public:
-    virtual double integrate (std::function<double (double)> f, double a, double b) = 0;
+    virtual double integrate (std::function<double (double)> f, double a, double b) const = 0;
 };
 
 
@@ -97,7 +100,7 @@ template <int N> class GaussLegendreQuadrature : public GaussianQuadrature::Impl
 public:
     enum {eDEGREE = N};
 
-    double integrate (std::function<double (double)> f, double a, double b) override
+    double integrate (std::function<double (double)> f, double a, double b) const override
     {
         const LegendrePolynomial& legpoly = legendrePolynomial;
 
@@ -229,7 +232,7 @@ void GaussianQuadrature::setPolynomialDegree (int degreeToUse)
     }
 }
 
-double GaussianQuadrature::integrate (std::function<double (double)> f, double a, double b)
+double GaussianQuadrature::integrate (std::function<double (double)> f, double a, double b) const
 {
     return implementation->integrate (f, a, b);
 }

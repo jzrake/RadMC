@@ -19,8 +19,11 @@ public:
         useEqualBinMasses,
     };
 
+    /** Constructs an empty lookup table. */
+    TabulatedFunction() {}
+
     /**
-    Constructs a lookup table for the data arrays x and y. The values of x are
+    Construct a lookup table for the data arrays x and y. The values of x are
     assumed to increase monotonically. If the x values are spaced linearly,
     then setting spacingMode to useEqualBinWidthsLinear will accelerate the
     lookup. If values of log(x) are spaced linearly then choose
@@ -33,7 +36,7 @@ public:
         BinSpacingMode spacingMode=useArbitraryBinSpacing);
 
     /**
-    Constructs a lookup table containing a tabulated approximation to the
+    Construct a lookup table containing a tabulated approximation to the
     definite integral f(x) between x0 and x1. The argument values are decided
     by the numberOfBins and binSpacingMode parameters (the table will have
     numberOfBins + 1 rows, corresponding to the bin edges). The mass in each
@@ -44,10 +47,10 @@ public:
     static TabulatedFunction createTabulatedIntegral (
         std::function<double(double)> f,
         double x0, double x1, int numberOfBins, BinSpacingMode spacingMode,
-        QuadratureRule& quadratureRule, double accuracy=1e-14, bool normalize=false);
+        const QuadratureRule& quadratureRule, double accuracy=1e-14, bool normalize=false);
 
     /**
-    Creates a tabulated function that is a histogram of samples. If density is
+    Create a tabulated function that is a histogram of samples. If density is
     true, then the table contains the mass divided by the bin width, dF / dx,
     rather than the mass dF in the bin. If normalize is true, then the total
     mass of the histogram will be \int {dF} = 1. When shift is set to true,
@@ -74,15 +77,15 @@ public:
     double lookupArgumentValue (double y);
 
     /**
-    Return a lambda function that evaluates lookupFunctionValue(x). The
-    closure references this, so be sure the TabulatedFunction instance is
+    Return a lambda function that evaluates lookupFunctionValue (x). The
+    closure references this, so be sure the TabulatedFunction instance
     remains alive longer than the returned lambda.
     */
     std::function<double (double)> getFunction();
 
     /**
-    Return a lambda function that evaluates lookupArgumentValue(x). The
-    closure references this, so be sure the TabulatedFunction instance is
+    Return a lambda function that evaluates lookupArgumentValue (x). The
+    closure references this, so be sure the TabulatedFunction instance
     remains alive longer than the returned lambda.
     */
     std::function<double (double)> getInverse();
