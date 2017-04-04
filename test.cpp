@@ -6,7 +6,7 @@
 #include "QuadratureRule.hpp"
 #include "NewtonRaphesonSolver.hpp"
 #include "RootBracketingSolver.hpp"
-
+#include "RotationMatrix.hpp"
 
 
 TEST_CASE ("FourVector")
@@ -38,8 +38,8 @@ TEST_CASE ("LorentzBoost")
 {
     FourVector u = FourVector::fromThreeVelocity (0.5, 0.0, 0.0);
     LorentzBoost L (u);
-    REQUIRE (u.getLorentzFactor() == 1.0 / std::sqrt (1.0 - 0.5 * 0.5));
-    REQUIRE ((L * u).getLorentzFactor() == Approx (1.0));
+    REQUIRE (u.getTimeComponent() == 1.0 / std::sqrt (1.0 - 0.5 * 0.5));
+    REQUIRE ((L * u).getTimeComponent() == Approx (1.0));
     REQUIRE ((L *(-u)).isFourVelocity() == true);
     REQUIRE ((L *(-u)).getThreeVelocityMagnitude() == Approx ((0.5 + 0.5) / (1 + 0.5 * 0.5)));
 }
@@ -163,5 +163,52 @@ SCENARIO ("RootFinding2", "[RootBracketingSolver]")
         }
     }
 }
+
+SCENARIO ("RotationMatrix", "[]")
+{
+    GIVEN ("The unit vector zhat")
+    {
+        UnitVector xhat = UnitVector::normalizeFrom (1, 0, 0);
+        UnitVector yhat = UnitVector::normalizeFrom (0, 1, 0);
+        UnitVector zhat = UnitVector::normalizeFrom (0, 0, 1);
+
+        THEN ("Y (pi / 2) zhat = xhat")
+        {
+            REQUIRE ((RotationMatrix::aboutY (M_PI / 2) * zhat).pitchAngleMu == Approx (xhat.pitchAngleMu));
+            REQUIRE ((RotationMatrix::aboutY (M_PI / 2) * zhat).azimuthalAnglePhi == Approx (xhat.azimuthalAnglePhi));
+        }
+
+        THEN ("X (-pi / 2) zhat = yhat")
+        {
+            REQUIRE ((RotationMatrix::aboutX (-M_PI / 2) * zhat).pitchAngleMu == Approx (yhat.pitchAngleMu));
+            REQUIRE ((RotationMatrix::aboutX (-M_PI / 2) * zhat).azimuthalAnglePhi == Approx (yhat.azimuthalAnglePhi));
+        }
+
+        THEN ("Z (pi / 2) xhat = yhat")
+        {
+            REQUIRE ((RotationMatrix::aboutZ (M_PI / 2) * xhat).pitchAngleMu == Approx (yhat.pitchAngleMu));
+            REQUIRE ((RotationMatrix::aboutZ (M_PI / 2) * xhat).azimuthalAnglePhi == Approx (yhat.azimuthalAnglePhi));
+        }
+
+        THEN ("zhat.withPolarAxis (xhat) = xhat")
+        {
+            REQUIRE (zhat.withPolarAxis (xhat).pitchAngleMu == Approx (xhat.pitchAngleMu));
+            REQUIRE (zhat.withPolarAxis (xhat).azimuthalAnglePhi == Approx (xhat.azimuthalAnglePhi));
+        }
+
+        THEN ("zhat.withPolarAxis (yhat) = yhat")
+        {
+            REQUIRE (zhat.withPolarAxis (yhat).pitchAngleMu == Approx (yhat.pitchAngleMu));
+            REQUIRE (zhat.withPolarAxis (yhat).azimuthalAnglePhi == Approx (yhat.azimuthalAnglePhi));
+        }
+
+        THEN ("zhat.withPolarAxis (zhat) = zhat")
+        {
+            REQUIRE (zhat.withPolarAxis (zhat).pitchAngleMu == Approx (zhat.pitchAngleMu));
+            REQUIRE (zhat.withPolarAxis (zhat).azimuthalAnglePhi == Approx (zhat.azimuthalAnglePhi));
+        }
+    }
+}
+
 
 
