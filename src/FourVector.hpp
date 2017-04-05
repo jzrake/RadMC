@@ -7,6 +7,9 @@
 #include "RandomVariable.hpp"
 
 
+class LorentzBoost;
+
+
 /**
 A class to encapsulate a 3D unit vector.
 */
@@ -51,7 +54,7 @@ public:
     /**
     Return the cosine of the angle between two unit vectors.
     */
-    double getPitchAngleWithRespectTo (const UnitVector& other) const;
+    double pitchAngleWith (const UnitVector& other) const;
 
     /**
     Return the unit vector which results if this vector's pitch and azimuthal
@@ -66,6 +69,12 @@ public:
     the provided random variable.
     */
     UnitVector sampleAxisymmetric (RandomVariable& pitchAngle);
+
+    /**
+    Sample the circle the unit sphere, an angle theta = acos (pitchAngle)
+    away from the tip of this unit vector.
+    */
+    UnitVector sampleAxisymmetric (double pitchAngle);
 
     double pitchAngleMu;
     double azimuthalAnglePhi;
@@ -120,6 +129,16 @@ public:
     FourVector operator- (const FourVector& other) const;
 
     /**
+    Modify this four vector by adding another one.
+    */
+    FourVector& operator+= (const FourVector& other);
+
+    /**
+    Modify this four vector by subtracting another one.
+    */
+    FourVector& operator-= (const FourVector& other);
+
+    /**
     Return four vector whose spatial components are negated.
     */
     FourVector operator-() const;
@@ -128,6 +147,11 @@ public:
     Return four vector with all components multiplied by the given scalar.
     */
     FourVector operator* (double scalar) const;
+
+    /**
+    Return the four vector u' = L * u.
+    */
+    FourVector transformedBy (const LorentzBoost& L) const;
 
     /**
     Return the contraction of this with another four-vector u.

@@ -15,7 +15,7 @@ public:
     LorentzBoost inverted();
 
     /**
-    Return a four vector u' = L.u transformed by this matrix.
+    Return a four vector u' = L * u transformed by this matrix.
     */
     FourVector operator* (const FourVector& u) const;
 
@@ -25,4 +25,3 @@ private:
 };
 
 #endif
-

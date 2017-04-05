@@ -1,6 +1,7 @@
 #include <cmath>
 #include "FourVector.hpp"
 #include "RotationMatrix.hpp"
+#include "LorentzBoost.hpp"
 
 
 
@@ -59,7 +60,7 @@ double UnitVector::getZ() const
     return nz;
 }
 
-double UnitVector::getPitchAngleWithRespectTo (const UnitVector& other) const
+double UnitVector::pitchAngleWith (const UnitVector& other) const
 {
     double u[3];
     double v[3];
@@ -77,9 +78,13 @@ UnitVector UnitVector::withPolarAxis (const UnitVector& newPolarAxis)
 
 UnitVector UnitVector::sampleAxisymmetric (RandomVariable& pitchAngle)
 {
-    double mu = pitchAngle.sample();
+    return sampleAxisymmetric (pitchAngle.sample());
+}
+
+UnitVector UnitVector::sampleAxisymmetric (double pitchAngle)
+{
     double phi = RandomVariable::sampleUniformAzimuth();
-    return UnitVector (mu, phi).withPolarAxis (*this);
+    return UnitVector (pitchAngle, phi).withPolarAxis (*this);
 }
 
 std::ostream& operator<< (std::ostream& os, const UnitVector& nhat)
@@ -187,6 +192,22 @@ FourVector FourVector::operator-() const
     return FourVector (u[0], -u[1], -u[2], -u[3]);
 }
 
+FourVector& FourVector::operator+= (const FourVector& other)
+{
+    for (int n = 0; n < 4; ++n)
+        components[n] += other.components[n];
+
+    return *this;
+}
+
+FourVector& FourVector::operator-= (const FourVector& other)
+{
+    for (int n = 0; n < 4; ++n)
+        components[n] -= other.components[n];
+
+    return *this;
+}
+
 FourVector FourVector::operator* (double scalar) const
 {
     const double *u = components;
@@ -199,6 +220,11 @@ double FourVector::operator* (const FourVector& other) const
     const double *u = components;
     const double *v = other.components;
     return -v[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3];
+}
+
+FourVector FourVector::transformedBy (const LorentzBoost& L) const
+{
+    return L * (*this);
 }
 
 bool FourVector::isNull (double tol) const

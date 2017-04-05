@@ -1,7 +1,7 @@
 
 
-SRC := $(filter-out main.cpp test.cpp, $(wildcard *.cpp))
-HDR := $(wildcard *.hpp)
+SRC := $(filter-out src/main.cpp src/test.cpp, $(wildcard src/*.cpp))
+HDR := $(wildcard src/*.hpp)
 OBJ := $(SRC:.cpp=.o)
 CFLAGS = -Wall -O0 -g
 
@@ -9,10 +9,10 @@ CFLAGS = -Wall -O0 -g
 %.o : %.cpp $(HDR)
 	$(CXX) $(CFLAGS) -o $@ -c -std=c++11 $<
 
-main : main.o $(OBJ)
+radmc : src/main.o $(OBJ)
 	$(CXX) $(CFLAGS) -o $@ $^
 
-test : test.o $(OBJ)
+test : src/test.o $(OBJ)
 	$(CXX) $(CFLAGS) -o $@ $^
 
 show :
@@ -20,4 +20,4 @@ show :
 	@echo $(OBJ)
 
 clean :
-	$(RM) $(OBJ) main.o test.o main test
+	$(RM) $(OBJ) src/main.o src/test.o radmc test
