@@ -4,7 +4,7 @@
 
 #include <ostream>
 #include <random>
-
+#include "RandomVariable.hpp"
 
 
 /**
@@ -13,20 +13,40 @@ A class to encapsulate a 3D unit vector.
 class UnitVector
 {
 public:
-    template <class EngineType> static UnitVector generateIsotropic (EngineType& engine)
-    {
-        return UnitVector (randomVariableMu (engine), randomVariablePhi (engine));
-    }
-    static UnitVector normalizeFrom (double vx, double vy, double vz);
+    static UnitVector xhat;
+    static UnitVector yhat;
+    static UnitVector zhat;
 
-    UnitVector (double pitchAngleMu, double azimuthalAnglePhi) :
-    pitchAngleMu (pitchAngleMu),
-    azimuthalAnglePhi (azimuthalAnglePhi) {}
+    /**
+    Sample a unit vector from the distribution that is uniform over the unit sphere.
+    */
+    static UnitVector sampleIsotropic();
+
+    /**
+    Construct a unit vector that points toward the given point in cartestian
+    coordinates. If normalized in true, then this function assumes that (vx,
+    vy, vz) is on the unit sphere.
+    */
+    static UnitVector normalizeFrom (double vx, double vy, double vz, bool normalized=false);
+
+    /**
+    Construct a unit vector from its pitch angle, mu = cos (theta), and azimuth phi.
+    */
+    UnitVector (double pitchAngleMu, double azimuthalAnglePhi);
 
     /**
     Return the cartesian components of this unit vector.
     */
     void getCartesianComponents (double& nx, double& ny, double& nz) const;
+
+    /** Return one of the cartesian components */
+    double getX() const;
+
+    /** Return one of the cartesian components */
+    double getY() const;
+
+    /** Return one of the cartesian components */
+    double getZ() const;
 
     /**
     Return the cosine of the angle between two unit vectors.
@@ -40,12 +60,15 @@ public:
     */
     UnitVector withPolarAxis (const UnitVector& newPolarAxis);
 
+    /**
+    Sample the distribution on the unit sphere, which has rotational symmetry
+    around this unit vector, and whose distribution in pitch angle is given by
+    the provided random variable.
+    */
+    UnitVector sampleAxisymmetric (RandomVariable& pitchAngle);
+
     double pitchAngleMu;
     double azimuthalAnglePhi;
-
-private:
-    static std::uniform_real_distribution<double> randomVariableMu;
-    static std::uniform_real_distribution<double> randomVariablePhi;
 };
 
 

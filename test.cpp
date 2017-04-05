@@ -9,39 +9,54 @@
 #include "RotationMatrix.hpp"
 
 
-TEST_CASE ("FourVector")
+SCENARIO ("FourVector")
 {
-    SECTION ("u = [1 0 0 0]")
+    GIVEN ("u = [1 0 0 0]")
     {
-        FourVector u (1, 0, 0, 0);
-        REQUIRE (u.isNull() == 0);
-        REQUIRE (u.isSpacelike() == 1);
-        REQUIRE (u.isTimelike() == 0);
+        THEN ("Spacelike, timelike, and null methods work")
+        {
+            FourVector u (1, 0, 0, 0);
+            REQUIRE (u.isNull() == 0);
+            REQUIRE (u.isSpacelike() == 1);
+            REQUIRE (u.isTimelike() == 0);
+        }
     }
-    SECTION ("u = [0 1 1 1]")
+    GIVEN ("u = [0 1 1 1]")
     {
-        FourVector u (0, 1, 1, 1);
-        REQUIRE (u.isNull() == 0);
-        REQUIRE (u.isSpacelike() == 0);
-        REQUIRE (u.isTimelike() == 1);
+        THEN ("Spacelike, timelike, and null methods work")
+        {
+            FourVector u (0, 1, 1, 1);
+            REQUIRE (u.isNull() == 0);
+            REQUIRE (u.isSpacelike() == 0);
+            REQUIRE (u.isTimelike() == 1);
+        }
     }
-    SECTION ("u = [-1 1 0 0]")
+    GIVEN ("u = [-1 1 0 0]")
     {
-        FourVector u (-1, 1, 0, 0);
-        REQUIRE (u.isNull() == 1);
-        REQUIRE (u.isSpacelike() == 0.0);
-        REQUIRE (u.isTimelike() == 0);
+        THEN ("Spacelike, timelike, and null methods work")
+        {
+            FourVector u (-1, 1, 0, 0);
+            REQUIRE (u.isNull() == 1);
+            REQUIRE (u.isSpacelike() == 0.0);
+            REQUIRE (u.isTimelike() == 0);
+        }
     }
 }
 
-TEST_CASE ("LorentzBoost")
+SCENARIO ("LorentzBoost")
 {
-    FourVector u = FourVector::fromThreeVelocity (0.5, 0.0, 0.0);
-    LorentzBoost L (u);
-    REQUIRE (u.getTimeComponent() == 1.0 / std::sqrt (1.0 - 0.5 * 0.5));
-    REQUIRE ((L * u).getTimeComponent() == Approx (1.0));
-    REQUIRE ((L *(-u)).isFourVelocity() == true);
-    REQUIRE ((L *(-u)).getThreeVelocityMagnitude() == Approx ((0.5 + 0.5) / (1 + 0.5 * 0.5)));
+    GIVEN ("Lorentz boost with v=0.5 along x")
+    {
+        THEN ("Four vectors are transformed correctly")
+        {
+            FourVector u = FourVector::fromThreeVelocity (0.5, 0.0, 0.0);
+            LorentzBoost L (u);
+            REQUIRE (u.getTimeComponent() == 1.0 / std::sqrt (1.0 - 0.5 * 0.5));
+            REQUIRE ((L * u).getTimeComponent() == Approx (1.0));
+            REQUIRE ((L *(-u)).isFourVelocity() == true);
+            REQUIRE ((L *(-u)).getThreeVelocityMagnitude() == Approx ((0.5 + 0.5) / (1 + 0.5 * 0.5)));
+        }
+    }
 }
 
 SCENARIO ("Numerical integration", "[QuadratureRule]" )
@@ -125,7 +140,7 @@ SCENARIO ("Numerical integration", "[QuadratureRule]" )
     }
 }
 
-SCENARIO ("RootFinding1", "[NewtonRaphesonSolver]")
+SCENARIO ("Root finding 1", "[NewtonRaphesonSolver]")
 {
     GIVEN ("The function F = (x + 2) * (x + 4) * (x - 3)")
     {
@@ -146,7 +161,7 @@ SCENARIO ("RootFinding1", "[NewtonRaphesonSolver]")
     }
 }
 
-SCENARIO ("RootFinding2", "[RootBracketingSolver]")
+SCENARIO ("Root finding 2", "[RootBracketingSolver]")
 {
     GIVEN ("The function F = (x + 2) * (x + 4) * (x - 3) + 2")
     {
@@ -164,7 +179,7 @@ SCENARIO ("RootFinding2", "[RootBracketingSolver]")
     }
 }
 
-SCENARIO ("RotationMatrix", "[]")
+SCENARIO ("Rotation matrices", "[RotationMatrixn]")
 {
     GIVEN ("The unit vector zhat")
     {
@@ -210,5 +225,36 @@ SCENARIO ("RotationMatrix", "[]")
     }
 }
 
+SCENARIO ("Sampling unit vectors")
+{
+    GIVEN ("Pitch angles are distributed around -1")
+    {
+        RandomVariable delta = RandomVariable::diracDelta (-1);
 
+        WHEN ("The target vector is xhat")
+        {
+            UnitVector n = UnitVector::xhat;
+            THEN ("Sampled unit vectors are -xhat")
+            {
+                REQUIRE (n.sampleAxisymmetric (delta).getX() == -1);
+            }
+        }
+        WHEN ("The target vector is yhat")
+        {
+            UnitVector n = UnitVector::yhat;
+            THEN ("Sampled unit vectors are -yhat")
+            {
+                REQUIRE (n.sampleAxisymmetric (delta).getY() == -1);
+            }
+        }
+        WHEN ("The target vector is zhat")
+        {
+            UnitVector n = UnitVector::zhat;
+            THEN ("Sampled unit vectors are -zhat")
+            {
+                REQUIRE (n.sampleAxisymmetric (delta).getZ() == -1);
+            }
+        }
+    }
+}
 

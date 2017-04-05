@@ -7,7 +7,7 @@ DistributionSampler::DistributionSampler() : uniform (0, 1) {}
 
 DistributionSampler::~DistributionSampler() {}
 
-void DistributionSampler::computeQuantileFunctionFromDensity (std::function<double (double)> densityFunctionToUse, double x0, double x1)
+void DistributionSampler::computeQntFromDensity (std::function<double (double)> densityFunctionToUse, double x0, double x1)
 {
     const int numberOfTableEntries = 1024;
     const double accuracyParameter = 1e-12;
@@ -18,12 +18,12 @@ void DistributionSampler::computeQuantileFunctionFromDensity (std::function<doub
         TabulatedFunction::useEqualBinWidthsLinear, gauss,
         accuracyParameter, true);
 
-    quantileFunction = tabulatedCDF.getInverse();
+    Qnt = tabulatedCDF.getInverse();
 }
 
-void DistributionSampler::setQuantileFunction (std::function<double (double)> quantileFunctionToUse)
+void DistributionSampler::setQnt (std::function<double (double)> QntToUse)
 {
-    quantileFunction = quantileFunctionToUse;
+    Qnt = QntToUse;
 }
 
 std::vector<double> DistributionSampler::generateSamples (int numberOfSamples)
@@ -33,7 +33,7 @@ std::vector<double> DistributionSampler::generateSamples (int numberOfSamples)
     for (int n = 0; n < numberOfSamples; ++n)
     {
         double F = uniform (engine);
-        samples.push_back (quantileFunction (F));
+        samples.push_back (Qnt (F));
     }
 
     return samples;

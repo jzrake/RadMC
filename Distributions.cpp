@@ -9,7 +9,7 @@ std::function<double (double)> Distributions::makeGaussian (double meanMu, doubl
 {
     switch (type)
     {
-        case probabilityDensityFunction:
+        case Pdf:
         {
             return [=] (double x)
             {
@@ -18,7 +18,7 @@ std::function<double (double)> Distributions::makeGaussian (double meanMu, doubl
                 return std::sqrt (1 / (2 * M_PI * s * s)) * std::exp (-(x - m) * (x - m) / (2 * s * s));
             };
         }
-        case probabilityMassFunction:
+        case Cdf:
         {
             return [=] (double x)
             {
@@ -27,7 +27,7 @@ std::function<double (double)> Distributions::makeGaussian (double meanMu, doubl
                 return 0.5 * (1 + std::erf ((x - m) / (s * std::sqrt (2))));
             };
         }
-        case quantileFunction:
+        case Qnt:
         {
             throw std::runtime_error ("not implemented");
         }
@@ -38,7 +38,7 @@ std::function<double (double)> Distributions::makeMaxwellBoltzmann (double tempe
 {
     switch (type)
     {
-        case probabilityDensityFunction:
+        case Pdf:
         {
             return [=] (double beta)
             {
@@ -47,8 +47,8 @@ std::function<double (double)> Distributions::makeMaxwellBoltzmann (double tempe
                 return std::sqrt (8 / M_PI / T) * e * std::exp (-e);
             };
         }
-        case probabilityMassFunction:
-        case quantileFunction:
+        case Cdf:
+        case Qnt:
         {
             throw std::runtime_error ("not implemented");
         }
@@ -60,7 +60,7 @@ std::function<double (double)> Distributions::makeMaxwellJuttner (double tempera
     // Note: for T=10, the normalization should be 1995.0396464211412
     switch (type)
     {
-        case probabilityDensityFunction:
+        case Pdf:
         {
             return [=] (double gammaBeta)
             {
@@ -70,33 +70,33 @@ std::function<double (double)> Distributions::makeMaxwellJuttner (double tempera
                 return u * u * std::exp (-g / T);
             };
         }
-        case probabilityMassFunction:
-        case quantileFunction:
+        case Cdf:
+        case Qnt:
         {
             throw std::runtime_error ("not implemented");
         }
     }
 }
 
-std::function<double (double)> Distributions::makePitchAngleGivenScattered (double velocityBeta, FunctionType type)
+std::function<double (double)> Distributions::makePitchAngle (double velocityBeta, FunctionType type)
 {
     switch (type)
     {
-        case probabilityDensityFunction:
+        case Pdf:
         {
             return [=] (double pitchAngleMu)
             {
                 return 0.5 * (1 - velocityBeta * pitchAngleMu);
             };
         }
-        case probabilityMassFunction:
+        case Cdf:
         {
             return [=] (double pitchAngleMu)
             {
                 return 0.5 * (1 - velocityBeta * pitchAngleMu);
             };
         }
-        case quantileFunction:
+        case Qnt:
         {
             return [=] (double quantileF)
             {

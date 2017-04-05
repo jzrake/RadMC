@@ -8,14 +8,14 @@ class Distributions
 public:
     enum FunctionType
     {
-        probabilityDensityFunction = 1,
-        probabilityMassFunction    = 2,
-        quantileFunction           = 3,
+        Pdf = 1,
+        Cdf = 2,
+        Qnt = 3,
     };
     static std::function<double (double)> makeGaussian (double meanMu, double stdDeviationSigma, FunctionType type);
     static std::function<double (double)> makeMaxwellBoltzmann (double temperatureTheta, FunctionType type);
     static std::function<double (double)> makeMaxwellJuttner (double temperatureTheta, FunctionType type);
-    static std::function<double (double)> makePitchAngleGivenScattered (double velocityBeta, FunctionType type);
+    static std::function<double (double)> makePitchAngle (double velocityBeta, FunctionType type);
 };
 
 #endif

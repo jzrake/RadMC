@@ -4,14 +4,29 @@
 
 
 
+UnitVector UnitVector::xhat (0, 0);
+UnitVector UnitVector::yhat (0, M_PI / 2);
+UnitVector UnitVector::zhat (1, 0);
 
-
-
-UnitVector UnitVector::normalizeFrom (double vx, double vy, double vz)
+UnitVector UnitVector::sampleIsotropic()
 {
-    double cosTheta = vz / std::sqrt (vx * vx + vy * vy + vz * vz);
+    double mu = RandomVariable::sampleUniform();
+    double phi = RandomVariable::sampleUniformAzimuth();
+    return UnitVector (mu, phi);
+}
+
+UnitVector UnitVector::normalizeFrom (double vx, double vy, double vz, bool normalized)
+{
+    double cosTheta = vz / (normalized ? 1 : std::sqrt (vx * vx + vy * vy + vz * vz));
     double phi = std::atan2 (vy, vx);
     return UnitVector (cosTheta, phi);
+}
+
+UnitVector::UnitVector (double pitchAngleMu, double azimuthalAnglePhi) :
+pitchAngleMu (pitchAngleMu),
+azimuthalAnglePhi (azimuthalAnglePhi)
+{
+
 }
 
 void UnitVector::getCartesianComponents (double& nx, double& ny, double& nz) const
@@ -21,6 +36,27 @@ void UnitVector::getCartesianComponents (double& nx, double& ny, double& nz) con
     nx = sinTheta * std::cos (azimuthalAnglePhi);
     ny = sinTheta * std::sin (azimuthalAnglePhi);
     nz = cosTheta;
+}
+
+double UnitVector::getX() const
+{
+    double nx, ny, nz;
+    getCartesianComponents (nx, ny, nz);
+    return nx;
+}
+
+double UnitVector::getY() const
+{
+    double nx, ny, nz;
+    getCartesianComponents (nx, ny, nz);
+    return ny;
+}
+
+double UnitVector::getZ() const
+{
+    double nx, ny, nz;
+    getCartesianComponents (nx, ny, nz);
+    return nz;
 }
 
 double UnitVector::getPitchAngleWithRespectTo (const UnitVector& other) const
@@ -39,6 +75,13 @@ UnitVector UnitVector::withPolarAxis (const UnitVector& newPolarAxis)
     return RotationMatrix::aboutZ (phi) * (RotationMatrix::aboutY (theta) * (*this));
 }
 
+UnitVector UnitVector::sampleAxisymmetric (RandomVariable& pitchAngle)
+{
+    double mu = pitchAngle.sample();
+    double phi = RandomVariable::sampleUniformAzimuth();
+    return UnitVector (mu, phi).withPolarAxis (*this);
+}
+
 std::ostream& operator<< (std::ostream& os, const UnitVector& nhat)
 {
     double nx, ny, nz;
@@ -48,11 +91,9 @@ std::ostream& operator<< (std::ostream& os, const UnitVector& nhat)
 }
 
 
-std::uniform_real_distribution<double> UnitVector::randomVariableMu (-1, 1);
-std::uniform_real_distribution<double> UnitVector::randomVariablePhi (0, 2 * M_PI);
 
 
-
+// ============================================================================
 FourVector::FourVector()
 {
 

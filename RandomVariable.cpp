@@ -4,28 +4,27 @@
 
 
 // ========================================================================
-class KnownQuantileFunction : public RandomVariable::SamplingScheme
+class KnownQnt : public RandomVariable::SamplingScheme
 {
 public:
-    KnownQuantileFunction (std::function<double (double)> quantileFunction) :
-    quantileFunction (quantileFunction) {}
+    KnownQnt (std::function<double (double)> qnt) : qnt (qnt) {}
 
     double generate (double F)
     {
-        return quantileFunction (F);
+        return qnt (F);
     }
 private:
-    std::function<double (double)> quantileFunction;
+    std::function<double (double)> qnt;
 };
 
 
 
 
 // ========================================================================
-class KnownProbabilityDensityFunction : public RandomVariable::SamplingScheme
+class KnownPdf : public RandomVariable::SamplingScheme
 {
 public:
-    KnownProbabilityDensityFunction (std::function<double (double)> densityFunction, double x0, double x1)
+    KnownPdf (std::function<double (double)> densityFunction, double x0, double x1)
     {
         const int numberOfTableEntries = 1024;
         const double accuracyParameter = 1e-12;
@@ -49,15 +48,46 @@ private:
 
 
 // ========================================================================
-RandomVariable::SamplingScheme* RandomVariable::fromDensityFunction (
-    std::function<double (double)> pdf,
-    double x0, double x1)
+static std::uniform_real_distribution<double> uniform (0, 1);
+static std::uniform_real_distribution<double> uniformAzimuth (0, 2 * M_PI);
+static std::mt19937 engine;
+
+double RandomVariable::sampleUniform()
 {
-    return new KnownProbabilityDensityFunction (pdf, x0, x1);
+    return uniform (engine);
 }
 
-RandomVariable::SamplingScheme* RandomVariable::fromQuantileFunction (
-    std::function<double (double)> qnt)
+double RandomVariable::sampleUniformAzimuth()
 {
-    return new KnownQuantileFunction (qnt);
+    return uniformAzimuth (engine);
+}
+
+RandomVariable::SamplingScheme* RandomVariable::fromPdf (std::function<double (double)> pdf, double x0, double x1)
+{
+    return new KnownPdf (pdf, x0, x1);
+}
+
+RandomVariable::SamplingScheme* RandomVariable::fromQnt (std::function<double (double)> qnt)
+{
+    return new KnownQnt (qnt);
+}
+
+RandomVariable RandomVariable::diracDelta (double x)
+{
+    return new KnownQnt ([=] (double F) { return x; });
+}
+
+RandomVariable::RandomVariable (SamplingScheme* scheme) : scheme (scheme)
+{
+
+}
+
+RandomVariable::RandomVariable (std::function<double (double)> qnt) : scheme (new KnownQnt (qnt))
+{
+
+}
+
+double RandomVariable::sample()
+{
+    return scheme->generate (sampleUniform());
 }

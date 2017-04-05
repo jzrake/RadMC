@@ -13,14 +13,14 @@ public:
     DistributionSampler();
     virtual ~DistributionSampler();
     
-    virtual void computeQuantileFunctionFromDensity (std::function<double (double)> densityFunctionToUse, double x0, double x1);
-    void setQuantileFunction (std::function<double (double)> quantileFunctionToUse);
+    virtual void computeQntFromDensity (std::function<double (double)> densityFunctionToUse, double x0, double x1);
+    void setQnt (std::function<double (double)> QntToUse);
     std::vector<double> generateSamples (int numberOfSamples);
 
 private:
     std::uniform_real_distribution<double> uniform;
     std::mt19937 engine;
-    std::function<double (double)> quantileFunction;
+    std::function<double (double)> Qnt;
     TabulatedFunction tabulatedCDF;
 };
 
