@@ -46,6 +46,11 @@ public:
     static RandomVariable diracDelta (double x);
 
     /**
+    Return a random variable that is uniform from x0 to x1
+    */
+    static RandomVariable uniformOver (double x0, double x1);
+
+    /**
     Make a random variable which will be sampled using the given scheme.
     */
     RandomVariable (SamplingScheme* scheme);

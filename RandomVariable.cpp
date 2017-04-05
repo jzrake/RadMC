@@ -77,6 +77,11 @@ RandomVariable RandomVariable::diracDelta (double x)
     return new KnownQnt ([=] (double F) { return x; });
 }
 
+RandomVariable RandomVariable::uniformOver (double x0, double x1)
+{
+    return new KnownQnt ([=] (double F) { return x0 + (x1 - x0) * F; });
+}
+
 RandomVariable::RandomVariable (SamplingScheme* scheme) : scheme (scheme)
 {
 

@@ -159,6 +159,12 @@ public:
     */
     void printToStream (std::ostream& stream) const;
 
+    /**
+    Return v = u / sqrt (1 + u^2) where u = gammaBeta is the four velocity and
+    v is the three velocity.
+    */
+    static double betaFromGammaBeta (double gammaBeta);
+
 private:
     friend class LorentzBoost;
     double components[4];

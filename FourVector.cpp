@@ -230,6 +230,11 @@ void FourVector::printToStream (std::ostream& stream) const
     << components[3] << ")";
 }
 
+double FourVector::betaFromGammaBeta (double gammaBeta)
+{
+    return gammaBeta / std::sqrt (1 + gammaBeta * gammaBeta);
+}
+
 std::ostream& operator<< (std::ostream& os, const FourVector& u)
 {
     u.printToStream (os);
