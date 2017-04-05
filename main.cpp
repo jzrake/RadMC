@@ -87,7 +87,8 @@ Electron generateElectronGivenPhotonWasScattered (const Photon& photon)
     // 1. Choose a temperature for the electron distribution.
     double kT = 1.0;
     auto maxwellPdf = Distributions::makeMaxwellBoltzmann (kT, Distributions::probabilityDensityFunction);
-    RandomVariable::FromProbabilityDensityFunction electronBetaRv (maxwellPdf, 0, 5);
+
+    RandomVariable electronBetaRv (RandomVariable::fromDensityFunction (maxwellPdf, 0, 5));
 
     // 2. Sample the electron speed (Note: convert from gammaBeta if MJ).
     double electronBeta = electronBetaRv (engine);
@@ -95,7 +96,7 @@ Electron generateElectronGivenPhotonWasScattered (const Photon& photon)
     // 3. Create a distribution of pitch angles over which the scattering
     //    might have occurred.
     auto scatteringMuQnt = Distributions::makePitchAngleGivenScattered (electronBeta, Distributions::quantileFunction);
-    RandomVariable::FromQuantileFunction scatteringMuRv (scatteringMuQnt);
+    RandomVariable scatteringMuRv (RandomVariable::fromQuantileFunction (scatteringMuQnt));
     std::uniform_real_distribution<double> scatteringPhiRv (0, 2 * M_PI);
 
     // 4. Sample that distribution. This mu is the angle between the photon
@@ -125,21 +126,15 @@ Electron generateElectronGivenPhotonWasScattered (const Photon& photon)
 
 int main (int argc, char **argv)
 {
+    auto pdf = Distributions::makeMaxwellBoltzmann (1.0, Distributions::probabilityDensityFunction);
+    RandomVariable electronBetaRv (RandomVariable::fromDensityFunction (pdf, 0, 5));
 
     std::mt19937 engine;
 
     Photon p = Photon::generateIsotropic (1.0, engine);
-    Electron e = Electron::generateIsotropic (2.0, engine);
+    //Electron e = Electron::generateIsotropic (2.0, engine);
 
     generateElectronGivenPhotonWasScattered (p);
-    return 0;
-
-    std::cout << p.momentum + e.momentum << std::endl;
-
-    doComptonScattering (p, e);
-
-    std::cout << p.momentum + e.momentum << std::endl;
-    
     return 0;
 }
 

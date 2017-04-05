@@ -6,57 +6,32 @@
 #include "TabulatedFunction.hpp"
 
 
+
+
 class RandomVariable
 {
 public:
-
-    // ========================================================================
-    class FromQuantileFunction
+    class SamplingScheme
     {
     public:
-        FromQuantileFunction (std::function<double (double)> quantileFunction) :
-        randomVariableF (0, 1),
-        quantileFunction (quantileFunction)
-        {
-
-        }
-        
-        template <class EngineType> double operator() (EngineType& engine)
-        {
-            return quantileFunction (randomVariableF (engine));
-        }
-
-    private:
-        std::uniform_real_distribution<double> randomVariableF;
-        std::function<double (double)> quantileFunction;
+        virtual double generate (double uniformSample) = 0;
+        virtual ~SamplingScheme() {}
     };
 
-    // ========================================================================
-    class FromProbabilityDensityFunction
+    static SamplingScheme* fromQuantileFunction (std::function<double (double)> qnt);
+    static SamplingScheme* fromDensityFunction (std::function<double (double)> pdf, double x0, double x1);
+
+    RandomVariable (SamplingScheme* scheme) : randomVariableF (0, 1), scheme (scheme) {}
+
+    template <class EngineType> double operator() (EngineType& engine)
     {
-    public:
-        FromProbabilityDensityFunction (std::function<double (double)> densityFunctionToUse, double x0, double x1) :
-        randomVariableF (0, 1)
-        {
-            const int numberOfTableEntries = 1024;
-            const double accuracyParameter = 1e-12;
-            const GaussianQuadrature gauss (8);
+        double F = randomVariableF (engine);
+        return scheme->generate (F);
+    }
 
-            tabulatedCDF = TabulatedFunction::createTabulatedIntegral (
-                densityFunctionToUse, x0, x1, numberOfTableEntries,
-                TabulatedFunction::useEqualBinWidthsLinear, gauss,
-                accuracyParameter, true);
-        }
-
-        template <class EngineType> double operator() (EngineType& engine)
-        {
-            return tabulatedCDF.lookupArgumentValue (randomVariableF (engine));
-        }
-
-    private:
-        std::uniform_real_distribution<double> randomVariableF;
-        TabulatedFunction tabulatedCDF;
-    };
+private:
+    std::uniform_real_distribution<double> randomVariableF;
+    std::unique_ptr<SamplingScheme> scheme;
 };
 
 
