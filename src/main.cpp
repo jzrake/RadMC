@@ -10,7 +10,7 @@
 #include "CubicInterpolant.hpp"
 #include "Distributions.hpp"
 #include "RandomVariable.hpp"
-
+#include "Variant.hpp"
 
 
 
@@ -79,7 +79,7 @@ void doComptonScattering (Photon& photon, Electron& electron)
 
 
 
-Electron sampleElectronThatScattered (const Photon& photon, RandomVariable& electronGammaBeta)
+Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta)
 {
     // Sample the electron speed (Note: convert from gammaBeta if MJ).
     double electronU = electronGammaBeta.sample();
@@ -97,31 +97,47 @@ Electron sampleElectronThatScattered (const Photon& photon, RandomVariable& elec
 
 
 
-int main (int argc, char **argv)
+
+int main (int argc, const char *argv[])
 {
-    double kT = 0.5;
+    Variant::NamedValues userParams;
+
+    userParams["kT"] = 0.01;
+    userParams["Ephot"] = 0.1;
+    userParams["nphot"] = 1000000;
+    userParams["iter"] = 10;
+
+    Variant::updateFromCommandLine (userParams, argc - 1, argv + 1);
+
+    std::cout << userParams << std::endl;
+
+    double kT = userParams["kT"];
+    int nphot = userParams["nphot"];
+    double uphot = userParams["Ephot"];
+
     auto maxwellPdf = Distributions::makeMaxwellBoltzmann (kT, Distributions::Pdf);
 
-    RandomVariable photonEnergy = RandomVariable::diracDelta (1.0);
+    RandomVariable photonEnergy = RandomVariable::diracDelta (uphot);
     RandomVariable electronGammaBeta (RandomVariable::fromPdf (maxwellPdf, 0, 5 * kT));
 
     std::vector<Photon> photons;
 
-    for (int i = 0; i < 1500000; ++i)
+    for (int i = 0; i < nphot; ++i)
     {
         photons.push_back (Photon::sampleIsotropic (photonEnergy));
     }
 
-    for (int n = 0; n < 10; ++n)
+    for (int n = 0; n < int (userParams["iter"]); ++n)
     {
         for (auto it = photons.begin(); it != photons.end(); ++it)
         {
-            if (RandomVariable::sampleUniform() < 0.2)
+            if (RandomVariable::sampleUniform() < 1.0)
             {
-                Electron e = sampleElectronThatScattered (*it, electronGammaBeta);
+                Electron e = sampleElectronForScattering (*it, electronGammaBeta);
                 doComptonScattering (*it, e);
             }
         }
+        
         std::cout << n << std::endl;
 
         if (n % 1 == 0)

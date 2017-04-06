@@ -1,5 +1,5 @@
-#ifndef TabulatedIntegral_hpp
-#define TabulatedIntegral_hpp
+#ifndef TabulatedFunction_hpp
+#define TabulatedFunction_hpp
 
 #include <vector>
 #include <functional>
@@ -108,5 +108,4 @@ private:
 };
 
 
-
-#endif
+#endif // TabulatedFunction_hpp
