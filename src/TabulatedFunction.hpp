@@ -19,8 +19,16 @@ public:
         useEqualBinMasses,
     };
 
-    /** Constructs an empty lookup table. */
+    /** Construct an empty lookup table. */
     TabulatedFunction() {}
+
+    /**
+    Construct a lookup table with numberOfBins x values, spacing either
+    useEqualBinWidthsLinear or useEqualBinWidthsLinear, and zero-initialized y
+    values. The x values of the lookup table will contain numberOfBins + 1 bin
+    edges.
+    */
+    TabulatedFunction (double x0, double x1, int numberOfBins, BinSpacingMode spacingMode);
 
     /**
     Construct a lookup table for the data arrays x and y. The values of x are
@@ -65,6 +73,27 @@ public:
     static TabulatedFunction makeHistogram (const std::vector<double>& samples,
         int numberOfBins, BinSpacingMode spacingMode,
         bool density=false, bool normalize=false, bool shift=false);
+
+    /**
+    Return the number of entries in the table.
+    */
+    int size();
+
+    /**
+    Get or modify the y data entries directly. Raise an exception if the index
+    is out of range.
+    */
+    double& operator[] (int index);
+
+    /**
+    Return the xdata[index].
+    */
+    double getBinEdge (int index);
+
+    /**
+    Return the distance between xdata[index] and xdata[index + 1].
+    */
+    double getBinWidth (int index);
 
     /**
     Look up the function value y(x), using linear interpolation between bins.

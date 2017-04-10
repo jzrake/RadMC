@@ -37,4 +37,5 @@ private:
 std::ostream& operator<< (std::ostream& os, const Variant& var);
 std::ostream& operator<< (std::ostream& os, const Variant::NamedValues& namedValues);
 
+
 #endif // Variant_hpp

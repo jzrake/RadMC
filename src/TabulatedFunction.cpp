@@ -15,6 +15,31 @@ spacingMode (spacingMode)
 
 }
 
+TabulatedFunction::TabulatedFunction (double x0, double x1, int numberOfBins, BinSpacingMode spacingMode)
+{
+    for (int n = 0; n < numberOfBins + 1; ++n)
+    {
+        switch (spacingMode)
+        {
+            case useEqualBinWidthsLinear:
+            {
+                xdata.push_back (x0 + (x1 - x0) * n / numberOfBins);
+                break;
+            }
+            case useEqualBinWidthsLogarithmic:
+            {
+                xdata.push_back (x0 * std::pow (x1 / x0, double (n) / numberOfBins));
+                break;
+            }
+            default:
+            {
+                throw std::runtime_error ("invalid bin spacing mode");
+            }
+        }
+        ydata.push_back (0);
+    }
+}
+
 TabulatedFunction TabulatedFunction::createTabulatedIntegral (
     std::function<double(double)> f,
     double x0, double x1, int numberOfBins, BinSpacingMode spacingMode,
@@ -199,6 +224,38 @@ TabulatedFunction TabulatedFunction::makeHistogram (
     {
         return TabulatedFunction (binEdges, binValues, spacingMode);
     }
+}
+
+int TabulatedFunction::size()
+{
+    return xdata.size();
+}
+
+double& TabulatedFunction::operator[] (int index)
+{
+    if (index < 0 || index >= ydata.size())
+    {
+        throw std::runtime_error ("TabulatedFunction::operator[] index out of range");
+    }
+    return ydata[index];
+}
+
+double TabulatedFunction::getBinEdge (int index)
+{
+    if (index < 0 || index >= xdata.size())
+    {
+        throw std::runtime_error ("TabulatedFunction::getBinEdge index out of range");
+    }
+    return xdata[index];
+}
+
+double TabulatedFunction::getBinWidth (int index)
+{
+    if (index < 0 || index >= xdata.size() - 1)
+    {
+        throw std::runtime_error ("TabulatedFunction::getBinWidth index out of range");
+    }
+    return xdata[index + 1] - xdata[index];
 }
 
 double TabulatedFunction::lookupFunctionValue (double x)

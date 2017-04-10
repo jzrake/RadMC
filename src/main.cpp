@@ -10,6 +10,7 @@
 #include "CubicInterpolant.hpp"
 #include "Distributions.hpp"
 #include "RandomVariable.hpp"
+#include "RichardsonCascade.hpp"
 #include "Variant.hpp"
 
 
@@ -98,7 +99,7 @@ Electron sampleElectronForScattering (const Photon& photon, RandomVariable& elec
 
 
 
-int main (int argc, const char *argv[])
+int comptonize (int argc, const char *argv[])
 {
     Variant::NamedValues userParams;
 
@@ -157,6 +158,41 @@ int main (int argc, const char *argv[])
             std::ofstream out (stream.str());
             hist.outputTable (out);
         }
+    }
+
+    return 0;
+}
+
+
+int main (int argc, const char *argv[])
+{
+    Variant::NamedValues userParams;
+    userParams["iter"] = 10;
+    userParams["Re"] = 1e6;
+
+    Variant::updateFromCommandLine (userParams, argc - 1, argv + 1);
+    std::cout << userParams;
+
+    RichardsonCascade cascade;
+
+    int maxIter = userParams["iter"];
+    int iter = 0;
+    double iterTime = 0;
+
+    while (iter < maxIter)
+    {
+        if (iter % 10 == 0)
+        {
+            std::string filename = "cascade" + std::to_string (iter / 10) + ".dat";
+            std::ofstream out (filename);
+            cascade.spectralEnergy.outputTable (out);
+        }
+
+        double dt = 0.5 * cascade.getShortestTimeScale();
+
+        cascade.advance (dt);
+        iterTime += dt;
+        iter += 1;
     }
 
     return 0;

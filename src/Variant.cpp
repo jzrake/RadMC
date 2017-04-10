@@ -67,14 +67,9 @@ std::ostream& operator<< (std::ostream& os, const Variant& var)
 
 std::ostream& operator<< (std::ostream& os, const Variant::NamedValues& namedValues)
 {
-    for (auto entry = namedValues.begin(); entry != namedValues.end(); )
+    for (auto& entry : namedValues)
     {
-        os << entry->first << ": " << entry->second;
-
-        if (++entry != namedValues.end())
-        {
-            os << "\n";
-        }
+        os << entry.first << ": " << entry.second << std::endl;;
     }
     return os;
 }
@@ -101,15 +96,15 @@ Variant::NamedValues Variant::fromCommandLine (int argc, const char* argv[])
 
 void Variant::update (Variant::NamedValues& target, const Variant::NamedValues& source)
 {
-    for (auto entry = source.begin(); entry != source.end(); ++entry)
+    for (auto& entry : source)
     {
-        if (target.find (entry->first) == target.end())
+        if (target.find (entry.first) == target.end())
         {
-            std::cout << "Warning: unrecognized '" << entry->first << "'\n";
+            std::cout << "Warning: unrecognized '" << entry.first << "'\n";
         }
         else
         {
-            target[entry->first].fromString (entry->second);
+            target[entry.first].fromString (entry.second);
         }
     }
 }
