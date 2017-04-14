@@ -7,7 +7,7 @@ CFLAGS = -std=c++11 -Wall -O3
 
 
 %.o : %.cpp $(HDR)
-	$(CXX) $(CFLAGS) -o $@ -c -std=c++11 $<
+	$(CXX) $(CFLAGS) -o $@ -c $<
 
 radmc : src/main.o $(OBJ)
 	$(CXX) $(CFLAGS) -o $@ $^

@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <sys/stat.h> // mkdir
 #include "FourVector.hpp"
 #include "LorentzBoost.hpp"
 #include "QuadratureRule.hpp"
@@ -12,6 +13,7 @@
 #include "RandomVariable.hpp"
 #include "RichardsonCascade.hpp"
 #include "Variant.hpp"
+
 
 
 
@@ -164,36 +166,90 @@ int comptonize (int argc, const char *argv[])
 }
 
 
-int main (int argc, const char *argv[])
+
+
+
+// ============================================================================
+class TurbulenceCascadeDriver
 {
-    Variant::NamedValues userParams;
-    userParams["iter"] = 10;
-    userParams["Re"] = 1e6;
-
-    Variant::updateFromCommandLine (userParams, argc - 1, argv + 1);
-    std::cout << userParams;
-
-    RichardsonCascade cascade;
-
-    int maxIter = userParams["iter"];
-    int iter = 0;
-    double iterTime = 0;
-
-    while (iter < maxIter)
+public:
+    TurbulenceCascadeDriver()
     {
-        if (iter % 10 == 0)
+
+    }
+
+    void run (int argc, const char *argv[])
+    {
+        makeUserParameters();
+
+        try
         {
-            std::string filename = "cascade" + std::to_string (iter / 10) + ".dat";
-            std::ofstream out (filename);
+            Variant::updateFromCommandLine (userParams, argc - 1, argv + 1);
+            std::cout << "=====================================================\n";
+            std::cout << userParams;
+            std::cout << "=====================================================\n";
+        }
+        catch (std::runtime_error& error)
+        {
+            std::cout << error.what() << std::endl;
+            return;
+        }
+
+        while (shouldContinue())
+        {
+            advance();
+        }
+    }
+
+    bool shouldContinue()
+    {
+        return simulationTime < double (userParams["tmax"]);
+    }
+
+    void advance()
+    {
+        if (simulationIter % 100 == 0)
+        {
+            std::ofstream out = makeOutputStream();
             cascade.spectralEnergy.outputTable (out);
         }
 
         double dt = 0.5 * cascade.getShortestTimeScale();
-
         cascade.advance (dt);
-        iterTime += dt;
-        iter += 1;
+        simulationTime += dt;
+        simulationIter += 1;
     }
+
+    void makeUserParameters()
+    {
+        userParams["tmax"] = 1.0;
+        userParams["outdir"] = ".";
+        userParams["Re"] = 1e6;
+    }
+
+private:
+    std::ofstream makeOutputStream()
+    {
+        std::string outdir = userParams["outdir"];
+        mkdir (outdir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        std::string filename = outdir + "/cascade" + std::to_string (simulationIter / 100) + ".dat";
+        std::ofstream out (filename);
+        return out;
+    }
+
+    Variant::NamedValues userParams;
+    RichardsonCascade cascade;
+    double simulationTime;
+    int simulationIter;
+};
+
+
+
+
+int main (int argc, const char *argv[])
+{
+    TurbulenceCascadeDriver driver;
+    driver.run (argc, argv);
 
     return 0;
 }

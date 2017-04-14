@@ -11,9 +11,9 @@ public:
     struct TimeScales
     {
         double getShortest();
-        double eddyTime;
-        double viscousTime;
-        double comptonTime;
+        double eddyTurnoverTime;
+        double viscousDampingTime;
+        double comptonDragTime;
     };
 
     RichardsonCascade();
@@ -26,10 +26,9 @@ public:
     TabulatedFunction spectralEnergy;
 
 private:
-    double cascadePower;
-    double meanFreePath;
-    double photonViscosity;
-    double molecularViscosity;
+    double cascadePower;           // should generally be 1
+    double photonMeanFreePath;     // in units of the outer scale
+    double radiativeEnergyDensity; // in units of rho c^2
 };
 
 

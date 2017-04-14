@@ -90,7 +90,6 @@ Variant::NamedValues Variant::fromCommandLine (int argc, const char* argv[])
             namedValues[key] = val;
         }
     }
-
     return namedValues;
 }
 
@@ -100,7 +99,7 @@ void Variant::update (Variant::NamedValues& target, const Variant::NamedValues& 
     {
         if (target.find (entry.first) == target.end())
         {
-            std::cout << "Warning: unrecognized '" << entry.first << "'\n";
+            throw std::runtime_error ("unrecognized '" + entry.first + "'");
         }
         else
         {

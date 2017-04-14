@@ -4,11 +4,13 @@
 
 
 
-
+#include <iostream>
 // ============================================================================
 double RichardsonCascade::TimeScales::getShortest()
 {
-    return viscousTime < eddyTime ? viscousTime : eddyTime;
+    double timeScales[] = {eddyTurnoverTime, viscousDampingTime, comptonDragTime};
+    //std::cout << eddyTurnoverTime << " " << viscousDampingTime << " " << comptonDragTime << " " << std::endl;
+    return *std::min_element (timeScales, timeScales + 3);
 }
 
 
@@ -16,13 +18,12 @@ double RichardsonCascade::TimeScales::getShortest()
 
 // ============================================================================
 RichardsonCascade::RichardsonCascade() :
-spectralEnergy (1, 10000, 128, TabulatedFunction::useEqualBinWidthsLogarithmic)
+spectralEnergy (1, 100000, 128, TabulatedFunction::useEqualBinWidthsLogarithmic)
 {
     spectralEnergy[0] = 1;
     cascadePower = 1;
-    meanFreePath = 1e-3;
-    photonViscosity = 2e-5;
-    molecularViscosity = 1e-9;
+    photonMeanFreePath = 1e-3;
+    radiativeEnergyDensity = 8e-5;
 }
 
 RichardsonCascade::~RichardsonCascade()
@@ -33,7 +34,7 @@ RichardsonCascade::~RichardsonCascade()
 void RichardsonCascade::advance (double dt)
 {
     std::vector<double> energyFlux;
-    std::vector<double> viscousLoss;
+    std::vector<double> dampingLoss;
 
     spectralEnergy[0] += cascadePower * dt;
 
@@ -42,8 +43,8 @@ void RichardsonCascade::advance (double dt)
         double dE = spectralEnergy[n];
         TimeScales T = getTimeScales (n);
 
-        energyFlux.push_back (dE / T.eddyTime);
-        viscousLoss.push_back (dE / T.viscousTime);
+        energyFlux.push_back (dE / T.eddyTurnoverTime);
+        dampingLoss.push_back (dE * (1 / T.viscousDampingTime + 1 / T.comptonDragTime));
     }
 
     for (int n = 0; n < energyFlux.size(); ++n)
@@ -53,7 +54,7 @@ void RichardsonCascade::advance (double dt)
         spectralEnergy[n + 1] += dt * energyFlux[n];
 
         // Non-conservative
-        spectralEnergy[n] -= dt * viscousLoss[n];
+        spectralEnergy[n] -= dt * dampingLoss[n];
     }
 }
 
@@ -77,17 +78,15 @@ double RichardsonCascade::getShortestTimeScale()
 
 RichardsonCascade::TimeScales RichardsonCascade::getTimeScales (int binIndex)
 {
-    double dE = spectralEnergy[binIndex];
-    double eddySpeed = std::sqrt (dE);
-    double eddyScale = 1.0 / spectralEnergy.getBinEdge (binIndex);
-    double eddyTime = eddyScale / eddySpeed;
-    double viscosity = eddyScale < meanFreePath ? molecularViscosity : photonViscosity;
-    double viscousTime = eddyScale * eddyScale / viscosity;
+    const double dE = spectralEnergy[binIndex];
+    const double eddySpeed = std::sqrt (dE);
+    const double eddyScale = 1.0 / spectralEnergy.getBinEdge (binIndex);
+    const double viscosity = photonMeanFreePath * radiativeEnergyDensity; // Note: needs 8 / 27 in front
 
     TimeScales T;
-    T.eddyTime = eddyTime;
-    T.viscousTime = viscousTime;
-    T.comptonTime = 0;
+    T.eddyTurnoverTime = eddyScale / eddySpeed;
+    T.viscousDampingTime = eddyScale * eddyScale / viscosity;
+    T.comptonDragTime = 3. / 4 * (photonMeanFreePath / radiativeEnergyDensity); // Note: needs a Zpm
 
     return T;
 }
