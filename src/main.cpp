@@ -199,6 +199,9 @@ public:
         simulationIter = 0;
         simulationTime = 0.0;
 
+        configureFromUserParameters();
+        printStartupMessage();
+
         while (shouldContinue())
         {
             if (shouldWriteOutput())
@@ -222,6 +225,22 @@ public:
         }
     }
 
+    void makeUserParameters()
+    {
+        userParams["tmax"] = 1.0;
+        userParams["outdir"] = ".";
+        userParams["cpi"] = 0.1;
+        userParams["urad"] = 1e-2;
+        userParams["lstar"] = 1e-3;
+    }
+
+    void configureFromUserParameters()
+    {
+        cascade.photonMeanFreePath = userParams["lstar"];
+        cascade.radiativeEnergyDensity = userParams["urad"];
+        cascade.cascadePower = 1.0;
+    }
+
     void advance (double dt)
     {
         cascade.advance (dt);
@@ -235,12 +254,24 @@ public:
     bool shouldWriteOutput() const
     {
         double timeBetweenOutputs = userParams.at ("cpi");
-        return simulationTime >= timeBetweenOutputs * outputsWrittenSoFar;
+        return simulationTime >= timeBetweenOutputs * outputsWrittenSoFar - 1e-12;
     }
 
     double getTimestep() const
     {
-        return 0.5 * cascade.getShortestTimeScale();
+        return 10000 * cascade.getShortestTimeScale();
+    }
+
+    void printStartupMessage() const
+    {
+        std::cout << "Photon mean free path: " << cascade.getPhotonMeanFreePathScale() << "\n";
+        std::cout << "Viscous scale: " << cascade.getFiducialViscousScale() << "\n";
+        std::cout << "Compton power: " << cascade.getFiducialComptonPower() << "\n";
+
+        double ln = cascade.getFiducialViscousScale();
+        double ls = cascade.getPhotonMeanFreePathScale();
+        double ec = cascade.getFiducialComptonPower();
+        std::cout << std::pow (ln / ls, 4) << " " << std::pow (ec, 3) << std::endl;
     }
 
     void writeOutput (std::string filename) const
@@ -255,19 +286,12 @@ public:
         writeAsciiTable (columns, stream);
     }
 
-    void makeUserParameters()
-    {
-        userParams["tmax"] = 1.0;
-        userParams["outdir"] = ".";
-        userParams["cpi"] = 0.1;
-    }
-
 private:
     std::string makeOutputFilename()
     {
         std::ostringstream filenameStream;
         filenameStream << userParams["outdir"] << "/spectrum.";
-        filenameStream << std::setfill ('0') << std::setw (6) << simulationIter;
+        filenameStream << std::setfill ('0') << std::setw (6) << outputsWrittenSoFar;
         filenameStream << ".dat";
 
         return filenameStream.str();;
