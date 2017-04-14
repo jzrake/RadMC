@@ -77,23 +77,34 @@ public:
     /**
     Return the number of entries in the table.
     */
-    int size();
+    int size() const;
 
     /**
     Get or modify the y data entries directly. Raise an exception if the index
     is out of range.
     */
     double& operator[] (int index);
+    const double& operator[] (int index) const;
 
     /**
     Return the xdata[index].
     */
-    double getBinEdge (int index);
+    double getBinEdge (int index) const;
 
     /**
     Return the distance between xdata[index] and xdata[index + 1].
     */
-    double getBinWidth (int index);
+    double getBinWidth (int index) const;
+
+    /**
+    Get the array of x data.
+    */
+    const std::vector<double>& getDataX() const { return xdata; }
+
+    /**
+    Get the array of y data.
+    */
+    const std::vector<double>& getDataY() const { return ydata; }
 
     /**
     Look up the function value y(x), using linear interpolation between bins.
@@ -122,13 +133,13 @@ public:
     /**
     Print the table values as ASCII.
     */
-    void outputTable (std::ostream& stream);
+    void outputTable (std::ostream& stream) const;
 
     /**
     Print the table values as ASCII, alongside a function that returns known
-    exact values (helpful for testing).
+    exact values (helpful for testing). The first column will be the row index.
     */
-    void outputTable (std::ostream& stream, std::function<double (double)> exactYfunction);
+    void outputTable (std::ostream& stream, std::function<double (double)> exactYfunction) const;
 
 private:
     std::vector<double> xdata;

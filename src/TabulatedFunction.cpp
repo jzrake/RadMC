@@ -226,7 +226,7 @@ TabulatedFunction TabulatedFunction::makeHistogram (
     }
 }
 
-int TabulatedFunction::size()
+int TabulatedFunction::size() const
 {
     return xdata.size();
 }
@@ -240,7 +240,16 @@ double& TabulatedFunction::operator[] (int index)
     return ydata[index];
 }
 
-double TabulatedFunction::getBinEdge (int index)
+const double& TabulatedFunction::operator[] (int index) const
+{
+    if (index < 0 || index >= ydata.size())
+    {
+        throw std::runtime_error ("TabulatedFunction::operator[] index out of range");
+    }
+    return ydata[index];
+}
+
+double TabulatedFunction::getBinEdge (int index) const
 {
     if (index < 0 || index >= xdata.size())
     {
@@ -249,7 +258,7 @@ double TabulatedFunction::getBinEdge (int index)
     return xdata[index];
 }
 
-double TabulatedFunction::getBinWidth (int index)
+double TabulatedFunction::getBinWidth (int index) const
 {
     if (index < 0 || index >= xdata.size() - 1)
     {
@@ -353,13 +362,13 @@ std::function<double (double)> TabulatedFunction::getInverse()
     return [this] (double y) { return lookupArgumentValue (y); };
 }
 
-void TabulatedFunction::outputTable (std::ostream& stream)
+void TabulatedFunction::outputTable (std::ostream& stream) const
 {
     auto dummyExactCumulativeMass = [] (double x) { return 0; };
     return outputTable (stream, dummyExactCumulativeMass);
 }
 
-void TabulatedFunction::outputTable (std::ostream& stream, std::function<double (double)> exactYfunction)
+void TabulatedFunction::outputTable (std::ostream& stream, std::function<double (double)> exactYfunction) const
 {
     for (int n = 0; n < ydata.size(); ++n)
     {

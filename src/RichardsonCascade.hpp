@@ -20,8 +20,10 @@ public:
     ~RichardsonCascade();
 
     void advance (double dt);
-    double getShortestTimeScale();
-    TimeScales getTimeScales (int binIndex);
+    double getShortestTimeScale() const;
+    TimeScales getTimeScales (int binIndex) const;
+    std::vector<double> getEddyTurnoverTime() const;
+    std::vector<double> getDampingTime() const;
 
     TabulatedFunction spectralEnergy;
 

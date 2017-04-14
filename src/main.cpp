@@ -1,8 +1,8 @@
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 #include <cmath>
-#include <sys/stat.h> // mkdir
 #include "FourVector.hpp"
 #include "LorentzBoost.hpp"
 #include "QuadratureRule.hpp"
@@ -13,7 +13,7 @@
 #include "RandomVariable.hpp"
 #include "RichardsonCascade.hpp"
 #include "Variant.hpp"
-
+#include "PathHelpers.hpp"
 
 
 
@@ -195,52 +195,105 @@ public:
             return;
         }
 
+        outputsWrittenSoFar = 0;
+        simulationIter = 0;
+        simulationTime = 0.0;
+
         while (shouldContinue())
         {
-            advance();
+            if (shouldWriteOutput())
+            {
+                std::string filename = makeOutputFilename();
+
+                PathHelpers::ensureParentDirectoryExists (filename);
+                writeOutput (filename);
+
+                std::cout << "n=" << std::setfill ('0') << std::setw (6) << simulationIter << " ";
+                std::cout << "t=" << std::setw (4) << std::fixed << simulationTime << " ";
+                std::cout << "output:" << filename << std::endl;
+                
+                ++outputsWrittenSoFar;
+            }
+
+            double dt = getTimestep();
+            advance (dt);
+            simulationTime += dt;
+            simulationIter += 1;
         }
     }
 
-    bool shouldContinue()
+    void advance (double dt)
     {
-        return simulationTime < double (userParams["tmax"]);
-    }
-
-    void advance()
-    {
-        if (simulationIter % 100 == 0)
-        {
-            std::ofstream out = makeOutputStream();
-            cascade.spectralEnergy.outputTable (out);
-        }
-
-        double dt = 0.5 * cascade.getShortestTimeScale();
         cascade.advance (dt);
-        simulationTime += dt;
-        simulationIter += 1;
+    }
+
+    bool shouldContinue() const
+    {
+        return simulationTime < double (userParams.at ("tmax"));
+    }
+
+    bool shouldWriteOutput() const
+    {
+        double timeBetweenOutputs = userParams.at ("cpi");
+        return simulationTime >= timeBetweenOutputs * outputsWrittenSoFar;
+    }
+
+    double getTimestep() const
+    {
+        return 0.5 * cascade.getShortestTimeScale();
+    }
+
+    void writeOutput (std::string filename) const
+    {
+        std::vector<std::vector<double>> columns;
+        columns.push_back (cascade.spectralEnergy.getDataX());
+        columns.push_back (cascade.spectralEnergy.getDataY());
+        columns.push_back (cascade.getEddyTurnoverTime());
+        columns.push_back (cascade.getDampingTime());
+
+        std::ofstream stream (filename);
+        writeAsciiTable (columns, stream);
     }
 
     void makeUserParameters()
     {
         userParams["tmax"] = 1.0;
         userParams["outdir"] = ".";
-        userParams["Re"] = 1e6;
+        userParams["cpi"] = 0.1;
     }
 
 private:
-    std::ofstream makeOutputStream()
+    std::string makeOutputFilename()
     {
-        std::string outdir = userParams["outdir"];
-        mkdir (outdir.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        std::string filename = outdir + "/cascade" + std::to_string (simulationIter / 100) + ".dat";
-        std::ofstream out (filename);
-        return out;
+        std::ostringstream filenameStream;
+        filenameStream << userParams["outdir"] << "/spectrum.";
+        filenameStream << std::setfill ('0') << std::setw (6) << simulationIter;
+        filenameStream << ".dat";
+
+        return filenameStream.str();;
+    }
+
+    static void writeAsciiTable (std::vector<std::vector<double>> columns, std::ostream& stream)
+    {
+        for (int n = 0; n < columns[0].size(); ++n)
+        {
+            for (int i = 0; i < columns.size(); ++i)
+            {
+                stream
+                << std::scientific
+                << std::showpos
+                << std::setprecision (10)
+                << columns[i][n] << " ";
+            }
+            stream << std::endl;
+        }
     }
 
     Variant::NamedValues userParams;
     RichardsonCascade cascade;
     double simulationTime;
     int simulationIter;
+    int outputsWrittenSoFar;
 };
 
 

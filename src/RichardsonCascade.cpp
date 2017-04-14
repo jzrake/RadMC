@@ -4,12 +4,11 @@
 
 
 
-#include <iostream>
+
 // ============================================================================
 double RichardsonCascade::TimeScales::getShortest()
 {
     double timeScales[] = {eddyTurnoverTime, viscousDampingTime, comptonDragTime};
-    //std::cout << eddyTurnoverTime << " " << viscousDampingTime << " " << comptonDragTime << " " << std::endl;
     return *std::min_element (timeScales, timeScales + 3);
 }
 
@@ -38,7 +37,7 @@ void RichardsonCascade::advance (double dt)
 
     spectralEnergy[0] += cascadePower * dt;
 
-    for (int n = 0; n < spectralEnergy.size() - 1; ++n)
+    for (int n = 0; n < spectralEnergy.size(); ++n)
     {
         double dE = spectralEnergy[n];
         TimeScales T = getTimeScales (n);
@@ -47,7 +46,7 @@ void RichardsonCascade::advance (double dt)
         dampingLoss.push_back (dE * (1 / T.viscousDampingTime + 1 / T.comptonDragTime));
     }
 
-    for (int n = 0; n < energyFlux.size(); ++n)
+    for (int n = 0; n < spectralEnergy.size() - 1; ++n)
     {
         // Conservative
         spectralEnergy[n]     -= dt * energyFlux[n];
@@ -58,12 +57,12 @@ void RichardsonCascade::advance (double dt)
     }
 }
 
-double RichardsonCascade::getShortestTimeScale()
+double RichardsonCascade::getShortestTimeScale() const
 {
     double shortestTime = 0;
     bool first = true;
 
-    for (int n = 0; n < spectralEnergy.size() - 1; ++n)
+    for (int n = 0; n < spectralEnergy.size(); ++n)
     {
         TimeScales T = getTimeScales (n);
 
@@ -76,7 +75,7 @@ double RichardsonCascade::getShortestTimeScale()
     return shortestTime;
 }
 
-RichardsonCascade::TimeScales RichardsonCascade::getTimeScales (int binIndex)
+RichardsonCascade::TimeScales RichardsonCascade::getTimeScales (int binIndex) const
 {
     const double dE = spectralEnergy[binIndex];
     const double eddySpeed = std::sqrt (dE);
@@ -90,3 +89,28 @@ RichardsonCascade::TimeScales RichardsonCascade::getTimeScales (int binIndex)
 
     return T;
 }
+
+std::vector<double> RichardsonCascade::getEddyTurnoverTime() const
+{
+    std::vector<double> eddyTurnoverTime;
+
+    for (int n = 0; n < spectralEnergy.size(); ++n)
+    {
+        TimeScales T = getTimeScales (n);
+        eddyTurnoverTime.push_back (T.eddyTurnoverTime);
+    }
+    return eddyTurnoverTime;
+}
+
+std::vector<double> RichardsonCascade::getDampingTime() const
+{
+    std::vector<double> dampingTime;
+
+    for (int n = 0; n < spectralEnergy.size(); ++n)
+    {
+        TimeScales T = getTimeScales (n);
+        dampingTime.push_back (std::min (T.viscousDampingTime, T.comptonDragTime));
+    }
+    return dampingTime;
+}
+
