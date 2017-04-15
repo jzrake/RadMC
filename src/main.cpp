@@ -213,6 +213,7 @@ public:
 
                 std::cout << "n=" << std::setfill ('0') << std::setw (6) << simulationIter << " ";
                 std::cout << "t=" << std::setw (4) << std::fixed << simulationTime << " ";
+                std::cout << "E=" << std::setw (4) << std::fixed << cascade.getTotalEnergy() << " ";
                 std::cout << "output:" << filename << std::endl;
                 
                 ++outputsWrittenSoFar;
@@ -232,6 +233,7 @@ public:
         userParams["cpi"] = 0.1;
         userParams["urad"] = 1e-2;
         userParams["lstar"] = 1e-3;
+        userParams["cfl"] = 0.5;
     }
 
     void configureFromUserParameters()
@@ -259,7 +261,8 @@ public:
 
     double getTimestep() const
     {
-        return 10000 * cascade.getShortestTimeScale();
+        double cfl = userParams.at ("cfl");
+        return cfl * cascade.getShortestTimeScale();
     }
 
     void printStartupMessage() const
@@ -277,8 +280,8 @@ public:
     void writeOutput (std::string filename) const
     {
         std::vector<std::vector<double>> columns;
-        columns.push_back (cascade.spectralEnergy.getDataX());
-        columns.push_back (cascade.spectralEnergy.getDataY());
+        columns.push_back (cascade.powerSpectrum.getDataX());
+        columns.push_back (cascade.powerSpectrum.getDataY());
         columns.push_back (cascade.getEddyTurnoverTime());
         columns.push_back (cascade.getDampingTime());
 

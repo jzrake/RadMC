@@ -23,10 +23,10 @@ public:
     TabulatedFunction() {}
 
     /**
-    Construct a lookup table with numberOfBins x values, spacing either
-    useEqualBinWidthsLinear or useEqualBinWidthsLinear, and zero-initialized y
-    values. The x values of the lookup table will contain numberOfBins + 1 bin
-    edges.
+    Construct a lookup table with the given number of bins spaced either
+    linearly or logarithmically. Bin values are initialized to 0. The x values
+    of the lookup table will have size numberOfBins + 1, and contain locations
+    of the bin edges.
     */
     TabulatedFunction (double x0, double x1, int numberOfBins, BinSpacingMode spacingMode);
 
@@ -87,7 +87,7 @@ public:
     const double& operator[] (int index) const;
 
     /**
-    Return the xdata[index].
+    Return xdata[index].
     */
     double getBinEdge (int index) const;
 

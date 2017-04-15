@@ -75,8 +75,10 @@ public:
     */
     double getFiducialComptonPower() const;
 
+    /** Return the total energy. */
+    double getTotalEnergy() const;
 
-    TabulatedFunction spectralEnergy;
+    TabulatedFunction powerSpectrum;
     double cascadePower;           // should generally be 1
     double photonMeanFreePath;     // in units of the outer scale
     double radiativeEnergyDensity; // in units of rho c^2
