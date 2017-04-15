@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cassert>
 #include <cmath>
 #include "RichardsonCascade.hpp"
 
@@ -16,8 +17,8 @@ double RichardsonCascade::TimeScales::getShortest()
 
 
 // ============================================================================
-RichardsonCascade::RichardsonCascade() :
-powerSpectrum (1, 1e4, 256, TabulatedFunction::useEqualBinWidthsLogarithmic)
+RichardsonCascade::RichardsonCascade (double kmax, int numBins) :
+powerSpectrum (1, kmax, numBins, TabulatedFunction::useEqualBinWidthsLogarithmic)
 {
     cascadePower = 1;
     photonMeanFreePath = 1e-3;
@@ -77,16 +78,17 @@ double RichardsonCascade::getShortestTimeScale() const
     double shortestTime = 0;
     bool first = true;
 
-    for (int n = 0; n < powerSpectrum.size(); ++n)
+    for (int n = 1; n < powerSpectrum.size() - 1; ++n)
     {
-        TimeScales T = getTimeScales (n);
+        double T = getSignalTimeAtEdge (n);
 
-        if (first || T.getShortest() < shortestTime)
+        if (first || T < shortestTime)
         {
             first = false;
-            shortestTime = T.getShortest();
+            shortestTime = T;
         }
     }
+
     return shortestTime;
 }
 
@@ -155,4 +157,37 @@ double RichardsonCascade::getTotalEnergy() const
         E += powerSpectrum[n] * powerSpectrum.getBinWidth (n);
     }
     return E;
+}
+
+double RichardsonCascade::getEigenvalueAtEdge (int edgeIndex, double* binSpacing) const
+{
+    assert (edgeIndex >= 1 && edgeIndex < powerSpectrum.size() - 1);
+
+    double km = powerSpectrum.getBinEdge (edgeIndex - 1);
+    double kn = powerSpectrum.getBinEdge (edgeIndex);
+    double kp = powerSpectrum.getBinEdge (edgeIndex + 1);
+
+    double Pn =(powerSpectrum[edgeIndex] + powerSpectrum[edgeIndex - 1]) * 0.5;
+    double dP = powerSpectrum[edgeIndex] - powerSpectrum[edgeIndex - 1];
+    double dk = 0.5 * (kp - km);
+    double Pp = dP / dk;
+
+    if (binSpacing != nullptr)
+    {
+        *binSpacing = dk;
+    }
+
+    if (std::fabs (Pn) < 1e-12)
+    {
+        return 0;
+    }
+
+    return 3. / 2 * std::sqrt (kn * kn * kn * Pn) * (kn + 5. / 3 * Pn / Pp);
+}
+
+double RichardsonCascade::getSignalTimeAtEdge (int edgeIndex) const
+{
+    double deltaK;
+    double kPerTime = getEigenvalueAtEdge (edgeIndex, &deltaK);
+    return deltaK / std::max (std::abs (kPerTime), 1.0);
 }

@@ -17,7 +17,7 @@ public:
         double effectiveDampingTime;
     };
 
-    RichardsonCascade();
+    RichardsonCascade (double kmax=1e4, int numBins=128);
     ~RichardsonCascade();
 
     /**
@@ -82,6 +82,10 @@ public:
     double cascadePower;           // should generally be 1
     double photonMeanFreePath;     // in units of the outer scale
     double radiativeEnergyDensity; // in units of rho c^2
+
+private:
+    double getEigenvalueAtEdge (int edgeIndex, double* binSpacing=nullptr) const;
+    double getSignalTimeAtEdge (int edgeIndex) const;
 };
 
 

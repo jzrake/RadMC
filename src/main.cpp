@@ -204,6 +204,8 @@ public:
 
         while (shouldContinue())
         {
+            double dt = getTimestep();
+
             if (shouldWriteOutput())
             {
                 std::string filename = makeOutputFilename();
@@ -213,13 +215,13 @@ public:
 
                 std::cout << "n=" << std::setfill ('0') << std::setw (6) << simulationIter << " ";
                 std::cout << "t=" << std::setw (4) << std::fixed << simulationTime << " ";
+                std::cout << "dt=" << std::setw (4) << std::scientific << dt << " ";
                 std::cout << "E=" << std::setw (4) << std::fixed << cascade.getTotalEnergy() << " ";
                 std::cout << "output:" << filename << std::endl;
                 
                 ++outputsWrittenSoFar;
             }
 
-            double dt = getTimestep();
             advance (dt);
             simulationTime += dt;
             simulationIter += 1;
@@ -228,16 +230,20 @@ public:
 
     void makeUserParameters()
     {
-        userParams["tmax"] = 1.0;
         userParams["outdir"] = ".";
+        userParams["tmax"] = 1.0;
+        userParams["kmax"] = 1e4;
+        userParams["bins"] = 128;
+        userParams["cfl"] = 0.5;
         userParams["cpi"] = 0.1;
         userParams["urad"] = 1e-2;
         userParams["lstar"] = 1e-3;
-        userParams["cfl"] = 0.5;
     }
 
     void configureFromUserParameters()
     {
+        cascade = RichardsonCascade (userParams["kmax"], userParams["bins"]);
+
         cascade.photonMeanFreePath = userParams["lstar"];
         cascade.radiativeEnergyDensity = userParams["urad"];
         cascade.cascadePower = 1.0;
@@ -271,10 +277,10 @@ public:
         std::cout << "Viscous scale: " << cascade.getFiducialViscousScale() << "\n";
         std::cout << "Compton power: " << cascade.getFiducialComptonPower() << "\n";
 
-        double ln = cascade.getFiducialViscousScale();
-        double ls = cascade.getPhotonMeanFreePathScale();
-        double ec = cascade.getFiducialComptonPower();
-        std::cout << std::pow (ln / ls, 4) << " " << std::pow (ec, 3) << std::endl;
+        // double ln = cascade.getFiducialViscousScale();
+        // double ls = cascade.getPhotonMeanFreePathScale();
+        // double ec = cascade.getFiducialComptonPower();
+        // std::cout << std::pow (ln / ls, 4) << " " << std::pow (ec, 3) << std::endl;
     }
 
     void writeOutput (std::string filename) const
