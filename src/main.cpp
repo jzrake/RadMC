@@ -14,6 +14,9 @@
 #include "RichardsonCascade.hpp"
 #include "Variant.hpp"
 #include "PathHelpers.hpp"
+#include "SimulationDriver.hpp"
+#include "TurbulenceModelDriver.hpp"
+
 
 
 
@@ -168,173 +171,9 @@ int comptonize (int argc, const char *argv[])
 
 
 
-
-// ============================================================================
-class TurbulenceCascadeDriver
-{
-public:
-    TurbulenceCascadeDriver()
-    {
-
-    }
-
-    void run (int argc, const char *argv[])
-    {
-        makeUserParameters();
-
-        try
-        {
-            Variant::updateFromCommandLine (userParams, argc - 1, argv + 1);
-            std::cout << "=====================================================\n";
-            std::cout << userParams;
-            std::cout << "=====================================================\n";
-        }
-        catch (std::runtime_error& error)
-        {
-            std::cout << error.what() << std::endl;
-            return;
-        }
-
-        outputsWrittenSoFar = 0;
-        simulationIter = 0;
-        simulationTime = 0.0;
-
-        configureFromUserParameters();
-        printStartupMessage();
-
-        while (shouldContinue())
-        {
-            double dt = getTimestep();
-
-            if (shouldWriteOutput())
-            {
-                std::string filename = makeOutputFilename();
-
-                PathHelpers::ensureParentDirectoryExists (filename);
-                writeOutput (filename);
-
-                std::cout << "n=" << std::setfill ('0') << std::setw (6) << simulationIter << " ";
-                std::cout << "t=" << std::setw (4) << std::fixed << simulationTime << " ";
-                std::cout << "dt=" << std::setw (4) << std::scientific << dt << " ";
-                std::cout << "E=" << std::setw (4) << std::fixed << cascade.getTotalEnergy() << " ";
-                std::cout << "output:" << filename << std::endl;
-                
-                ++outputsWrittenSoFar;
-            }
-
-            advance (dt);
-            simulationTime += dt;
-            simulationIter += 1;
-        }
-    }
-
-    void makeUserParameters()
-    {
-        userParams["outdir"] = ".";
-        userParams["tmax"] = 1.0;
-        userParams["kmax"] = 1e4;
-        userParams["bins"] = 128;
-        userParams["cfl"] = 0.5;
-        userParams["cpi"] = 0.1;
-        userParams["urad"] = 1e-2;
-        userParams["lstar"] = 1e-3;
-    }
-
-    void configureFromUserParameters()
-    {
-        cascade = RichardsonCascade (userParams["kmax"], userParams["bins"]);
-
-        cascade.photonMeanFreePath = userParams["lstar"];
-        cascade.radiativeEnergyDensity = userParams["urad"];
-        cascade.cascadePower = 1.0;
-    }
-
-    void advance (double dt)
-    {
-        cascade.advance (dt);
-    }
-
-    bool shouldContinue() const
-    {
-        return simulationTime < double (userParams.at ("tmax"));
-    }
-
-    bool shouldWriteOutput() const
-    {
-        double timeBetweenOutputs = userParams.at ("cpi");
-        return simulationTime >= timeBetweenOutputs * outputsWrittenSoFar - 1e-12;
-    }
-
-    double getTimestep() const
-    {
-        double cfl = userParams.at ("cfl");
-        return cfl * cascade.getShortestTimeScale();
-    }
-
-    void printStartupMessage() const
-    {
-        std::cout << "Photon mean free path: " << cascade.getPhotonMeanFreePathScale() << "\n";
-        std::cout << "Viscous scale: " << cascade.getFiducialViscousScale() << "\n";
-        std::cout << "Compton power: " << cascade.getFiducialComptonPower() << "\n";
-
-        // double ln = cascade.getFiducialViscousScale();
-        // double ls = cascade.getPhotonMeanFreePathScale();
-        // double ec = cascade.getFiducialComptonPower();
-        // std::cout << std::pow (ln / ls, 4) << " " << std::pow (ec, 3) << std::endl;
-    }
-
-    void writeOutput (std::string filename) const
-    {
-        std::vector<std::vector<double>> columns;
-        columns.push_back (cascade.powerSpectrum.getDataX());
-        columns.push_back (cascade.powerSpectrum.getDataY());
-        columns.push_back (cascade.getEddyTurnoverTime());
-        columns.push_back (cascade.getDampingTime());
-
-        std::ofstream stream (filename);
-        writeAsciiTable (columns, stream);
-    }
-
-private:
-    std::string makeOutputFilename()
-    {
-        std::ostringstream filenameStream;
-        filenameStream << userParams["outdir"] << "/spectrum.";
-        filenameStream << std::setfill ('0') << std::setw (6) << outputsWrittenSoFar;
-        filenameStream << ".dat";
-
-        return filenameStream.str();;
-    }
-
-    static void writeAsciiTable (std::vector<std::vector<double>> columns, std::ostream& stream)
-    {
-        for (int n = 0; n < columns[0].size(); ++n)
-        {
-            for (int i = 0; i < columns.size(); ++i)
-            {
-                stream
-                << std::scientific
-                << std::showpos
-                << std::setprecision (10)
-                << columns[i][n] << " ";
-            }
-            stream << std::endl;
-        }
-    }
-
-    Variant::NamedValues userParams;
-    RichardsonCascade cascade;
-    double simulationTime;
-    int simulationIter;
-    int outputsWrittenSoFar;
-};
-
-
-
-
 int main (int argc, const char *argv[])
 {
-    TurbulenceCascadeDriver driver;
+    TurbulenceModelDriver driver;
     driver.run (argc, argv);
 
     return 0;
