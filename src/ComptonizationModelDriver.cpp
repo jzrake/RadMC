@@ -38,12 +38,19 @@ private:
 
 
 // ============================================================================
+ComptonizationModelDriver::ComptonizationModelDriver()
+{
+    addTimeSeries ("simulationTime");
+    addTimeSeries ("meanPhotonEnergy");
+}
+
 void ComptonizationModelDriver::makeUserParameters (Variant::NamedValues& params)
 {
     params["outdir"] = ".";
     params["tmax"] = 1.0;
-    params["cpi"] = 1.0;
-    params["kT"] = 0.01; // electron temperature in units of electron rest mass
+    params["cpi"] = 1.0; // Checkpoint interval
+    params["tsi"] = 1.0; // Time series interval
+    params["theta"] = 0.01; // electron temperature in units of electron rest mass
     params["ephot"] = 0.1;
     params["nphot"] = 4; // log10 of photon number
 }
@@ -51,11 +58,10 @@ void ComptonizationModelDriver::makeUserParameters (Variant::NamedValues& params
 void ComptonizationModelDriver::configureFromParameters()
 {
     int nphot = std::pow (10, int (getParameter ("nphot")));
-    double kT = getParameter ("kT");
+    double kT = getParameter ("theta");
     double ephot = getParameter ("ephot");
 
     auto electronPdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
-    //electronGammaBeta = RandomVariable::fromPdf (electronPdf, 0, 5 * kT);
     electronGammaBeta = RandomVariable (new SamplingScheme (electronPdf, 1e-8, 1.0));
     photonEnergy = RandomVariable::diracDelta (ephot);
 
@@ -67,13 +73,18 @@ void ComptonizationModelDriver::configureFromParameters()
 
 void ComptonizationModelDriver::printStartupMessage() const
 {
-    // std::cout << "normalization of electron gamma beta PDF: " <<
-    // electronGammaBeta.checkNormalization() << std::endl;
+
 }
 
 double ComptonizationModelDriver::getTimestep() const
 {
     return 1.0;
+}
+
+bool ComptonizationModelDriver::shouldContinue() const
+{
+    SimulationDriver::Status S = getStatus();
+    return S.simulationTime < double (getParameter ("tmax"));
 }
 
 void ComptonizationModelDriver::advance (double dt)
@@ -85,10 +96,18 @@ void ComptonizationModelDriver::advance (double dt)
     }
 }
 
-bool ComptonizationModelDriver::shouldContinue() const
+bool ComptonizationModelDriver::shouldRecordIterationInTimeSeries() const
 {
     SimulationDriver::Status S = getStatus();
-    return S.simulationTime < double (getParameter ("tmax"));
+    double timeSeriesInterval = getParameter ("tsi");
+    return S.simulationTime >= timeSeriesInterval * S.timeSeriesSamplesSoFar;
+}
+
+double ComptonizationModelDriver::getRecordForTimeSeries (std::string name) const
+{
+    if (name == "simulationTime") return getStatus().simulationTime;
+    if (name == "meanPhotonEnergy") return getMeanPhotonEnergy();
+    return 0.0;
 }
 
 bool ComptonizationModelDriver::shouldWriteOutput() const
@@ -110,10 +129,8 @@ void ComptonizationModelDriver::writeOutput (std::string filename) const
     TabulatedFunction hist = TabulatedFunction::makeHistogram (energies, 256,
         TabulatedFunction::useEqualBinWidthsLinear, true, true, false);
 
-    std::ofstream out (filename);
-    hist.outputTable (out);
-
-    std::cout << "mean photon energy: " << getMeanPhotonEnergy() << std::endl;
+    std::ofstream photonSpectrum (filename);
+    hist.outputTable (photonSpectrum);
 }
 
 std::string ComptonizationModelDriver::makeOutputFilename() const
@@ -123,7 +140,7 @@ std::string ComptonizationModelDriver::makeOutputFilename() const
     filenameStream << getParameter ("outdir") << "/photspec.";
     filenameStream << std::setfill ('0') << std::setw (6) << S.outputsWrittenSoFar;
     filenameStream << ".dat";
-    return filenameStream.str();;
+    return filenameStream.str();
 }
 
 Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta)

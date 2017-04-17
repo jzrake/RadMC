@@ -21,13 +21,14 @@ int main (int argc, const char *argv[])
     // TurbulenceModelDriver driver;
     // driver.run (argc, argv);
 
+    std::ofstream tseries ("tseries.dat");
     ComptonizationModelDriver comptonizer;
     comptonizer.run (argc, argv);
+    comptonizer.writeTimeSeriesData (tseries);
 
     // double kT = 0.01;
     // auto electronPdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
     // RandomVariable electronGammaBeta = RandomVariable::fromPdf (electronPdf, 0, 2);
-
     // testRandomVariable (electronGammaBeta);
 
     return 0;

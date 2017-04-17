@@ -10,6 +10,7 @@
 SimulationDriver::Status::Status()
 {
     outputsWrittenSoFar = 0;
+    timeSeriesSamplesSoFar = 0;
     simulationIter = 0;
     simulationTime = 0.0;
 }
@@ -41,6 +42,15 @@ void SimulationDriver::run (int argc, const char *argv[])
     while (shouldContinue())
     {
         double dt = getTimestep();
+
+        if (shouldRecordIterationInTimeSeries())
+        {
+            for (int n = 0; n < timeSeriesNames.size(); ++n)
+            {
+                timeSeriesData[n].push_back (getRecordForTimeSeries (timeSeriesNames[n]));
+            }
+            ++status.timeSeriesSamplesSoFar;
+        }
 
         if (shouldWriteOutput())
         {
@@ -83,6 +93,25 @@ Variant SimulationDriver::getParameter (std::string parameterName) const
 SimulationDriver::Status SimulationDriver::getStatus() const
 {
     return status;
+}
+
+void SimulationDriver::addTimeSeries (std::string seriesName)
+{
+    timeSeriesNames.push_back (seriesName);
+    timeSeriesData.push_back (std::vector<double>());
+}
+
+void SimulationDriver::writeTimeSeriesData (std::ostream& stream) const
+{
+    stream << "#";
+
+    for (auto& seriesName : timeSeriesNames)
+    {
+        stream << " " << seriesName;
+    }
+    stream << "\n";
+
+    writeAsciiTable (timeSeriesData, stream);
 }
 
 void SimulationDriver::writeAsciiTable (std::vector<std::vector<double>> columns, std::ostream& stream) const

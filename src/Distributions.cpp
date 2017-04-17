@@ -54,11 +54,11 @@ std::function<double (double)> Distributions::makeMaxwellBoltzmann (double tempe
         }
     }
 }
-#include <iostream>
+
 std::function<double (double)> Distributions::makeMaxwellJuttner (double temperatureTheta, FunctionType type)
 {
     // Note:
-    // for T=10, the normalization should be 1995.0396464211412
+    // for T=10, the normalization should be 1.9950396464211412e+03
     // for T=0.1 the normalization should be 2.1509817006932769e-06
     // N ~ T < 1 ? std::exp (-1 / T) : 2 * std::pow (T, 3.0);
 
