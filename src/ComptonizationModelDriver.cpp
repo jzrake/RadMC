@@ -5,6 +5,7 @@
 #include "LorentzBoost.hpp"
 #include "Distributions.hpp"
 #include "ComptonizationModelDriver.hpp"
+#include "PathHelpers.hpp"
 
 
 
@@ -60,20 +61,26 @@ void ComptonizationModelDriver::configureFromParameters()
     int nphot = std::pow (10, int (getParameter ("nphot")));
     double kT = getParameter ("theta");
     double ephot = getParameter ("ephot");
+    double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
 
     auto electronPdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
-    electronGammaBeta = RandomVariable (new SamplingScheme (electronPdf, 1e-8, 1.0));
+    electronGammaBeta = RandomVariable (new SamplingScheme (electronPdf, urms / 100, urms * 5));
     photonEnergy = RandomVariable::diracDelta (ephot);
 
     for (int n = 0; n < nphot; ++n)
     {
         photons.push_back (Photon::sampleIsotropic (photonEnergy));
     }
+
+    PathHelpers::ensureDirectoryExists (getParameter ("outdir"));
 }
 
 void ComptonizationModelDriver::printStartupMessage() const
 {
-
+    std::string filename = makeFilename (getParameter ("outdir"), "electron-u", ".dat");
+    std::cout << "generating electron four-velocity PDF table as diagnostic -> " << filename << std::endl;
+    std::ofstream out (filename);
+    electronGammaBeta.outputPdf (out, 1e7);
 }
 
 double ComptonizationModelDriver::getTimestep() const
@@ -83,7 +90,7 @@ double ComptonizationModelDriver::getTimestep() const
 
 bool ComptonizationModelDriver::shouldContinue() const
 {
-    SimulationDriver::Status S = getStatus();
+    Status S = getStatus();
     return S.simulationTime < double (getParameter ("tmax"));
 }
 
@@ -98,7 +105,7 @@ void ComptonizationModelDriver::advance (double dt)
 
 bool ComptonizationModelDriver::shouldRecordIterationInTimeSeries() const
 {
-    SimulationDriver::Status S = getStatus();
+    Status S = getStatus();
     double timeSeriesInterval = getParameter ("tsi");
     return S.simulationTime >= timeSeriesInterval * S.timeSeriesSamplesSoFar;
 }
@@ -107,17 +114,17 @@ double ComptonizationModelDriver::getRecordForTimeSeries (std::string name) cons
 {
     if (name == "simulationTime") return getStatus().simulationTime;
     if (name == "meanPhotonEnergy") return getMeanPhotonEnergy();
-    return 0.0;
+    throw std::runtime_error ("unknown time series name '" + name + "'");
 }
 
 bool ComptonizationModelDriver::shouldWriteOutput() const
 {
-    SimulationDriver::Status S = getStatus();
+    Status S = getStatus();
     double timeBetweenOutputs = getParameter ("cpi");
     return S.simulationTime >= timeBetweenOutputs * S.outputsWrittenSoFar - 1e-12;
 }
 
-void ComptonizationModelDriver::writeOutput (std::string filename) const
+void ComptonizationModelDriver::writeOutput() const
 {
     std::vector<double> energies;
 
@@ -126,21 +133,21 @@ void ComptonizationModelDriver::writeOutput (std::string filename) const
         energies.push_back (p.momentum.getTimeComponent());
     }
 
-    TabulatedFunction hist = TabulatedFunction::makeHistogram (energies, 256,
-        TabulatedFunction::useEqualBinWidthsLinear, true, true, false);
+    TabulatedFunction hist = TabulatedFunction::makeHistogram (
+        energies,
+        256, TabulatedFunction::useEqualBinWidthsLinear,
+        true, true, false);
 
+    // Write a new spectrum file
+    Status S = getStatus();
+    std::string filename = makeFilename (getParameter ("outdir"), "spectrum", ".dat", S.outputsWrittenSoFar);
     std::ofstream photonSpectrum (filename);
     hist.outputTable (photonSpectrum);
-}
 
-std::string ComptonizationModelDriver::makeOutputFilename() const
-{
-    SimulationDriver::Status S = getStatus();
-    std::ostringstream filenameStream;
-    filenameStream << getParameter ("outdir") << "/photspec.";
-    filenameStream << std::setfill ('0') << std::setw (6) << S.outputsWrittenSoFar;
-    filenameStream << ".dat";
-    return filenameStream.str();
+    // Overwrite the time-series file
+    std::string timeSeriesFilename = makeFilename (getParameter ("outdir"), "time-series", ".dat");
+    std::ofstream tseries (timeSeriesFilename);
+    writeTimeSeriesData (tseries);
 }
 
 Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta)

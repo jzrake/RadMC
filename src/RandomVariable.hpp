@@ -72,12 +72,19 @@ public:
     /**
     Generate a sample of this random variable.
     */
-    double sample();
+    double sample() const;
 
     /**
     Generate a bunch of samples.
     */
-    std::vector<double> sample (int numberOfSamples);
+    std::vector<double> sample (int numberOfSamples) const;
+
+    /**
+    Print a table of values representing the PDF of the random variable. This
+    is done by sampling the given number of times, then generating a histogram.
+    */
+    void outputPdf (std::ostream& stream, int numberOfSamples) const;
+
 
 private:
     // Use of shared pointer allows the random variable to be copy-constructed

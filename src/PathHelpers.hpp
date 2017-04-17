@@ -6,8 +6,9 @@
 class PathHelpers
 {
 public:
-	static std::string getParentDirectory (std::string filePath);
-	static void ensureParentDirectoryExists (std::string filePath);
+    static std::string getParentDirectory (std::string pathName);
+    static void ensureDirectoryExists (std::string pathName);
+    static void ensureParentDirectoryExists (std::string dirName);
 };
 
 

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 #include "SimulationDriver.hpp"
-#include "PathHelpers.hpp"
 
 
 
@@ -54,15 +54,11 @@ void SimulationDriver::run (int argc, const char *argv[])
 
         if (shouldWriteOutput())
         {
-            std::string filename = makeOutputFilename();
-
-            PathHelpers::ensureParentDirectoryExists (filename);
-            writeOutput (filename);
+            writeOutput();
 
             std::cout << "[" << std::setfill ('0') << std::setw (6) << status.simulationIter << "] ";
             std::cout << "t=" << std::setprecision (2) << std::fixed << status.simulationTime << " ";
-            std::cout << "dt=" << std::setprecision (2) << std::scientific << dt << " ";
-            std::cout << "output -> " << filename << std::endl;
+            std::cout << "dt=" << std::setprecision (2) << std::scientific << dt << "\n";
 
             ++status.outputsWrittenSoFar;
         }
@@ -112,6 +108,19 @@ void SimulationDriver::writeTimeSeriesData (std::ostream& stream) const
     stream << "\n";
 
     writeAsciiTable (timeSeriesData, stream);
+}
+
+std::string SimulationDriver::makeFilename (std::string directory, std::string base, std::string extension, int number) const
+{
+    std::ostringstream filenameStream;
+    filenameStream << directory << "/" << base;
+
+    if (number >= 0)
+    {
+        filenameStream << "." << std::setfill ('0') << std::setw (6) << number;
+    }
+    filenameStream << extension;
+    return filenameStream.str();
 }
 
 void SimulationDriver::writeAsciiTable (std::vector<std::vector<double>> columns, std::ostream& stream) const

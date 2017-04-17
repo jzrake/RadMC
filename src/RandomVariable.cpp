@@ -96,12 +96,12 @@ RandomVariable::RandomVariable (std::function<double (double)> qnt) : scheme (ne
 
 }
 
-double RandomVariable::sample()
+double RandomVariable::sample() const
 {
     return scheme->generate (sampleUniform());
 }
 
-std::vector<double> RandomVariable::sample (int numberOfSamples)
+std::vector<double> RandomVariable::sample (int numberOfSamples) const
 {
     std::vector<double> samples;
 
@@ -110,5 +110,15 @@ std::vector<double> RandomVariable::sample (int numberOfSamples)
         samples.push_back (sample());
     }
     return samples;
+}
+
+void RandomVariable::outputPdf (std::ostream& stream, int numberOfSamples) const
+{
+    std::vector<double> samples = sample (numberOfSamples);
+
+    TabulatedFunction f = TabulatedFunction::makeHistogram (samples, 256,
+        TabulatedFunction::useEqualBinWidthsLogarithmic, true, true, false);
+
+    f.outputTable (stream);
 }
 

@@ -17,8 +17,7 @@ public:
     void advance (double dt) override;
     bool shouldContinue() const override;
     bool shouldWriteOutput() const override;
-    void writeOutput (std::string filename) const override;
-    std::string makeOutputFilename() const override;
+    void writeOutput () const override;
 
 private:
     RichardsonCascade cascade;

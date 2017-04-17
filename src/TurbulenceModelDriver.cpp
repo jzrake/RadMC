@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <sstream>
 #include "TurbulenceModelDriver.hpp"
+#include "PathHelpers.hpp"
 
 
 
@@ -25,6 +26,7 @@ void TurbulenceModelDriver::configureFromParameters()
     cascade.photonMeanFreePath = getParameter ("lstar");
     cascade.radiativeEnergyDensity = getParameter ("urad");
     cascade.cascadePower = 1.0;
+    PathHelpers::ensureDirectoryExists (getParameter ("outdir"));
 }
 
 void TurbulenceModelDriver::printStartupMessage() const
@@ -47,18 +49,18 @@ void TurbulenceModelDriver::advance (double dt)
 
 bool TurbulenceModelDriver::shouldContinue() const
 {
-    SimulationDriver::Status S = getStatus();
+    Status S = getStatus();
     return S.simulationTime < double (getParameter ("tmax"));
 }
 
 bool TurbulenceModelDriver::shouldWriteOutput() const
 {
-    SimulationDriver::Status S = getStatus();
+    Status S = getStatus();
     double timeBetweenOutputs = getParameter ("cpi");
     return S.simulationTime >= timeBetweenOutputs * S.outputsWrittenSoFar - 1e-12;
 }
 
-void TurbulenceModelDriver::writeOutput (std::string filename) const
+void TurbulenceModelDriver::writeOutput () const
 {
     std::vector<std::vector<double>> columns;
     columns.push_back (cascade.powerSpectrum.getDataX());
@@ -66,16 +68,8 @@ void TurbulenceModelDriver::writeOutput (std::string filename) const
     columns.push_back (cascade.getEddyTurnoverTime());
     columns.push_back (cascade.getDampingTime());
 
+    Status S = getStatus();
+    std::string filename = makeFilename (getParameter ("outdir"), "spectrum", ".dat", S.outputsWrittenSoFar);
     std::ofstream stream (filename);
     writeAsciiTable (columns, stream);
-}
-
-std::string TurbulenceModelDriver::makeOutputFilename() const
-{
-    SimulationDriver::Status S = getStatus();
-    std::ostringstream filenameStream;
-    filenameStream << getParameter ("outdir") << "/spectrum.";
-    filenameStream << std::setfill ('0') << std::setw (6) << S.outputsWrittenSoFar;
-    filenameStream << ".dat";
-    return filenameStream.str();;
 }

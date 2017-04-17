@@ -131,8 +131,8 @@ TabulatedFunction TabulatedFunction::makeHistogram (
         return TabulatedFunction (std::vector<double>(), std::vector<double>(), useArbitraryBinSpacing);
     }
 
-    double x0 = *std::min_element (samples.begin(), samples.end()) - 1e-14; // To ensure we catch the first and last samples
-    double x1 = *std::max_element (samples.begin(), samples.end()) + 1e-14;
+    double x0 = *std::min_element (samples.begin(), samples.end()) - 1e-12; // To ensure we catch the first and last samples
+    double x1 = *std::max_element (samples.begin(), samples.end()) + 1e-12;
 
     std::vector<double> binEdges;
     std::vector<double> binValues (numberOfBins + 1, 0.0);
@@ -142,7 +142,7 @@ TabulatedFunction TabulatedFunction::makeHistogram (
         case useArbitraryBinSpacing:
         case useEqualBinMasses:
         {
-            throw std::runtime_error ("Histogram bin spacing must be linear or logarithmic");
+            throw std::runtime_error ("[TabulatedFunction::makeHistogram] bin spacing must be linear or logarithmic");
         }
         case useEqualBinWidthsLinear:
         {
@@ -196,7 +196,13 @@ TabulatedFunction TabulatedFunction::makeHistogram (
 
         if (binIndex < 0 || binIndex >= binEdges.size() - 1)
         {
-            throw std::runtime_error ("TabulatedFunction got out-of-range x value");
+            throw std::runtime_error ("[TabulatedFunction::makeHistogram] got out-of-range x value "
+                + std::to_string (samples[n])
+                + " not in ["
+                + std::to_string (binEdges.front())
+                + ", "
+                + std::to_string (binEdges.back())
+                + "]");
         }
 
         if (density)

@@ -57,8 +57,7 @@ public:
     bool shouldRecordIterationInTimeSeries() const override;
     double getRecordForTimeSeries (std::string) const override;
     bool shouldWriteOutput() const override;
-    void writeOutput (std::string filename) const override;
-    std::string makeOutputFilename() const override;
+    void writeOutput () const override;
 
 private:
     Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta);

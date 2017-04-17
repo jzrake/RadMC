@@ -42,6 +42,15 @@ public:
     void addTimeSeries (std::string seriesName);
 
     /**
+    Construct a name for an output file. If base number >= 0 then the result
+    will be something like rundir/spectrum.000123.dat. Otherwise, it will be
+    like rundir/spectrum.dat. Here, directory="rundir", base="spectrum",
+    extension=".dat", and number=123 in the first example and -1 in the
+    second.
+    */
+    std::string makeFilename (std::string directory, std::string base, std::string extension, int number=-1) const;
+
+    /**
     Write an ASCII formatted table of the current time series data.
     */
     void writeTimeSeriesData (std::ostream& stream) const;
@@ -61,8 +70,7 @@ public:
     virtual bool shouldRecordIterationInTimeSeries() const { return false; }
     virtual double getRecordForTimeSeries (std::string) const { return 0.0; }
     virtual bool shouldWriteOutput() const = 0;
-    virtual void writeOutput (std::string filename) const = 0;
-    virtual std::string makeOutputFilename() const = 0;
+    virtual void writeOutput () const = 0;
 
 private:
     Variant::NamedValues userParams;
