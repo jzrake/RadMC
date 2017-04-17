@@ -1,7 +1,45 @@
-#ifndef ComptonizationModelDriver
-#define ComptonizationModelDriver
+#ifndef ComptonizationModelDriver_hpp
+#define ComptonizationModelDriver_hpp
 
 #include "SimulationDriver.hpp"
+#include "TabulatedFunction.hpp"
+#include "FourVector.hpp"
+
+
+
+class Electron
+{
+public:
+    Electron () : momentum (1, 0, 0, 0) {}
+    Electron (FourVector momentum) : momentum (momentum) {}
+
+    /**
+    Return the electron four-velocity (this is the same as its momentum since
+    electron mass is 1).
+    */
+    FourVector getFourVelocity() const
+    {
+        return momentum;
+    }
+
+    FourVector momentum;
+};
+
+
+
+
+class Photon
+{
+public:
+    static Photon sampleIsotropic (RandomVariable& photonEnergy)
+    {
+        double E = photonEnergy.sample();
+        return FourVector::nullWithUnitVector (UnitVector::sampleIsotropic()) * E;
+    }
+    Photon (FourVector momentum) : momentum (momentum) {}
+
+    FourVector momentum;
+};
 
 
 
@@ -18,6 +56,15 @@ public:
     bool shouldWriteOutput() const override;
     void writeOutput (std::string filename) const override;
     std::string makeOutputFilename() const override;
+
+private:
+    Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta);
+    void doComptonScattering (Photon& photon, Electron& electron);
+    double getMeanPhotonEnergy() const;
+
+    RandomVariable electronGammaBeta;
+    RandomVariable photonEnergy;
+    std::vector<Photon> photons;
 };
 
 #endif

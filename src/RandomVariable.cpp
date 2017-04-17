@@ -1,4 +1,6 @@
+#include <random>
 #include "RandomVariable.hpp"
+#include "TabulatedFunction.hpp"
 
 
 
@@ -9,10 +11,11 @@ class KnownQnt : public RandomVariable::SamplingScheme
 public:
     KnownQnt (std::function<double (double)> qnt) : qnt (qnt) {}
 
-    double generate (double F)
+    double generate (double F) override
     {
         return qnt (F);
     }
+
 private:
     std::function<double (double)> qnt;
 };
@@ -36,10 +39,11 @@ public:
             accuracyParameter, true);
     }
 
-    double generate (double F)
+    double generate (double F) override
     {
         return tabulatedCDF.lookupArgumentValue (F);
     }
+
 private:
     TabulatedFunction tabulatedCDF;
 };
@@ -96,3 +100,15 @@ double RandomVariable::sample()
 {
     return scheme->generate (sampleUniform());
 }
+
+std::vector<double> RandomVariable::sample (int numberOfSamples)
+{
+    std::vector<double> samples;
+
+    for (int n = 0; n < numberOfSamples; ++n)
+    {
+        samples.push_back (sample());
+    }
+    return samples;
+}
+

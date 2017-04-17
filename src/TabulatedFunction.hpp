@@ -62,13 +62,13 @@ public:
     true, then the table contains the mass divided by the bin width, dF / dx,
     rather than the mass dF in the bin. If normalize is true, then the total
     mass of the histogram will be \int {dF} = 1. When shift is set to true,
-    the table will contain the bin minpoints and associated masses (or
+    the table will contain the bin mid-points and associated masses (or
     densities), and the size will be numberOfBins. Otherwise if shift is set
     to false, the table will have one more rows than the numberOfBins
     parameter, with the first column holding the location of bin edges, and
     the second column holding the bin masses to the right of the corresponding
-    edge, and to the left of the one after it (hence the mass in the final bin
-    will always be zero).
+    edge, and to the left of the one after it (the mass in the final bin will
+    be zero).
     */
     static TabulatedFunction makeHistogram (const std::vector<double>& samples,
         int numberOfBins, BinSpacingMode spacingMode,
@@ -84,6 +84,11 @@ public:
     is out of range.
     */
     double& operator[] (int index);
+
+    /**
+    Get the y data entries directly. Raise an exception if the index is out of
+    range.
+    */
     const double& operator[] (int index) const;
 
     /**

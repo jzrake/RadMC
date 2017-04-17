@@ -49,10 +49,10 @@ void SimulationDriver::run (int argc, const char *argv[])
             PathHelpers::ensureParentDirectoryExists (filename);
             writeOutput (filename);
 
-            std::cout << "n=" << std::setfill ('0') << std::setw (6) << status.simulationIter << " ";
-            std::cout << "t=" << std::setw (4) << std::fixed << status.simulationTime << " ";
-            std::cout << "dt=" << std::setw (4) << std::scientific << dt << " ";
-            std::cout << "output:" << filename << std::endl;
+            std::cout << "[" << std::setfill ('0') << std::setw (6) << status.simulationIter << "] ";
+            std::cout << "t=" << std::setprecision (2) << std::fixed << status.simulationTime << " ";
+            std::cout << "dt=" << std::setprecision (2) << std::scientific << dt << " ";
+            std::cout << "output -> " << filename << std::endl;
 
             ++status.outputsWrittenSoFar;
         }
@@ -65,7 +65,19 @@ void SimulationDriver::run (int argc, const char *argv[])
 
 Variant SimulationDriver::getParameter (std::string parameterName) const
 {
-    return userParams.at (parameterName);
+    try
+    {
+       return userParams.at (parameterName);
+    }
+    catch (std::out_of_range& error)
+    {
+        std::cerr
+        << "[SimulationDriver::getParameter] unknown parameter '"
+        << parameterName
+        << "'"
+        << std::endl;
+        throw;
+    }
 }
 
 SimulationDriver::Status SimulationDriver::getStatus() const

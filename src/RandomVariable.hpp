@@ -1,9 +1,8 @@
 #ifndef RandomVariable_hpp
 #define RandomVariable_hpp
 
-
-#include <random>
-#include "TabulatedFunction.hpp"
+#include <functional>
+#include <vector>
 
 
 
@@ -36,7 +35,10 @@ public:
     /**
     Return a sampling scheme from a probability density function (PDF).
     Internally, this constructs a lookup table for the cumulative distribution
-    function (CDF) by numerically integrating
+    function (CDF) by numerically integrating the PDF. This function uses
+    equal linear sampling between x0 and x1. If more flexibility is needed for
+    the lookup table, then sub-class SamplingScheme, using the KnownPdf class
+    found in RandomVariable.cpp as a template.
     */
     static SamplingScheme* fromPdf (std::function<double (double)> pdf, double x0, double x1);
 
@@ -51,18 +53,31 @@ public:
     static RandomVariable uniformOver (double x0, double x1);
 
     /**
+    Make an empty random variable. This cannot be called, it's just here so
+    there's a default constructor.
+    */
+    RandomVariable () {}
+
+    /**
     Make a random variable which will be sampled using the given scheme.
     */
     RandomVariable (SamplingScheme* scheme);
 
     /**
     Make a random variable based on a known quantile function (this is just a
-    shortcut for giving the return value of fromQnt to the general
-    construction).
+    shortcut for passing the result of fromQnt to the above constructor).
     */
     RandomVariable (std::function<double (double)> qnt);
 
+    /**
+    Generate a sample of this random variable.
+    */
     double sample();
+
+    /**
+    Generate a bunch of samples.
+    */
+    std::vector<double> sample (int numberOfSamples);
 
 private:
     // Use of shared pointer allows the random variable to be copy-constructed

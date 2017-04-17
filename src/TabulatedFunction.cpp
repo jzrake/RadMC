@@ -97,12 +97,20 @@ TabulatedFunction TabulatedFunction::createTabulatedIntegral (
         argumentValue.push_back (b);
         cumulativeMass.push_back (dF + cumulativeMass[n]);
 
+        // std::cout << dF << " " << f(a) << " " << f(b) << std::endl;
+
         x = b;
     }
 
     if (normalize)
     {
         double F1 = cumulativeMass.back();
+
+        if (F1 == 0.0)
+        {
+            throw std::runtime_error ("TabulatedFunction::createTabulatedIntegral: "
+                "there was no mass in the CDF, consider different range");
+        }
 
         for (int n = 0; n < cumulativeMass.size(); ++n)
         {
@@ -342,7 +350,9 @@ double TabulatedFunction::lookupArgumentValue (double y)
     int n = findBinIndex();
 
     if (n <= 0 || ydata.size() <= n)
+    {
         throw std::runtime_error ("TabulatedFunction got out-of-range y value");
+    }
 
     double xa = xdata[n - 1];
     double xb = xdata[n];
@@ -364,8 +374,11 @@ std::function<double (double)> TabulatedFunction::getInverse()
 
 void TabulatedFunction::outputTable (std::ostream& stream) const
 {
-    auto dummyExactCumulativeMass = [] (double x) { return 0; };
-    return outputTable (stream, dummyExactCumulativeMass);
+    for (int n = 0; n < ydata.size(); ++n)
+    {
+        double x = xdata[n];
+        stream << n << " " << x << " " << ydata[n] << " " << std::endl;
+    }
 }
 
 void TabulatedFunction::outputTable (std::ostream& stream, std::function<double (double)> exactYfunction) const

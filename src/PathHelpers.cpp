@@ -5,7 +5,7 @@
 
 std::string PathHelpers::getParentDirectory (std::string filePath)
 {
-	std::size_t lastSlash = filePath.find_last_of ("/");
+	std::string::size_type lastSlash = filePath.find_last_of ("/");
     return filePath.substr (0, lastSlash);
 }
 
