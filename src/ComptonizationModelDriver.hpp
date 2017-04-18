@@ -13,10 +13,6 @@ public:
     Electron () : momentum (1, 0, 0, 0) {}
     Electron (FourVector momentum) : momentum (momentum) {}
 
-    /**
-    Return the electron four-velocity (this is the same as its momentum since
-    electron mass is 1).
-    */
     FourVector getFourVelocity() const
     {
         return momentum;
@@ -38,6 +34,16 @@ public:
     }
     Photon (FourVector momentum) : momentum (momentum) {}
 
+    /**
+    Update the position four-vector based on the momentum and time step dt.
+    */
+    void advancePosition (double dt)
+    {
+        UnitVector nhat = momentum.getUnitThreeVector();
+        position += FourVector (dt, nhat.getX() * dt, nhat.getY() * dt, nhat.getZ() * dt);
+    }
+
+    FourVector position;
     FourVector momentum;
 };
 
@@ -61,6 +67,7 @@ public:
 
 private:
     Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta);
+    Electron sampleElectronForScattering (const Photon& photon, const FourVector::Field& field);
     void doComptonScattering (Photon& photon, Electron& electron);
     double getMeanPhotonEnergy() const;
 

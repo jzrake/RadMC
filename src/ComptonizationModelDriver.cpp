@@ -96,10 +96,19 @@ bool ComptonizationModelDriver::shouldContinue() const
 
 void ComptonizationModelDriver::advance (double dt)
 {
+    FourVector::Field velocityField = [] (FourVector x)
+    {
+        double ux = std::tanh (x[2]);
+        return FourVector::fromFourVelocity (ux, 0, 0);
+    };
+
+
     for (auto& p : photons)
     {
         Electron e = sampleElectronForScattering (p, electronGammaBeta);
+        //Electron e = sampleElectronForScattering (p, velocityField);
         doComptonScattering (p, e);
+        p.advancePosition (dt);
     }
 }
 
@@ -152,7 +161,7 @@ void ComptonizationModelDriver::writeOutput() const
 
 Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta)
 {
-    // Sample the electron speed (Note: convert from gammaBeta if MJ).
+    // Sample the electron speed (converted from gammaBeta).
     double electronU = electronGammaBeta.sample();
     double electronV = FourVector::betaFromGammaBeta (electronU);
 
@@ -164,6 +173,11 @@ Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& p
     UnitVector nhat = photon.momentum.getUnitThreeVector().sampleAxisymmetric (relativeMu);
 
     return FourVector::fromBetaAndUnitVector (electronV, nhat);
+}
+
+Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, const FourVector::Field& field)
+{
+    return field (photon.position);
 }
 
 void ComptonizationModelDriver::doComptonScattering (Photon& photon, Electron& electron)

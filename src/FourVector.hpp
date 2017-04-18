@@ -4,6 +4,7 @@
 
 #include <ostream>
 #include <random>
+#include <functional>
 #include "RandomVariable.hpp"
 
 
@@ -92,11 +93,14 @@ A class to encapsulate four-vector operations. The (-,+,+,+) metric is assumed.
 class FourVector
 {
 public:
+    typedef std::function<FourVector (FourVector)> Field;
+
     FourVector();
     FourVector (const FourVector& other);
     FourVector (double u[4]);
     FourVector (double E, double px, double py, double pz);
     static FourVector fromThreeVelocity (double vx, double vy, double vz);
+    static FourVector fromFourVelocity (double ux, double uy, double uz);
     static FourVector nullWithUnitVector (UnitVector nhat);
     static FourVector fromGammaBetaAndUnitVector (double gammaBeta, UnitVector nhat);
     static FourVector fromBetaAndUnitVector (double beta, UnitVector nhat);
@@ -117,6 +121,12 @@ public:
     Return the time component u[0] of the four vector.
     */
     double getTimeComponent() const;
+
+    /**
+    Return one of the components. This function does not do a range check on
+    the index.
+    */
+    const double& operator[] (int index) const;
 
     /**
     Return four vector addition.

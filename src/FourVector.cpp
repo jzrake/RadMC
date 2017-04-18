@@ -101,7 +101,10 @@ std::ostream& operator<< (std::ostream& os, const UnitVector& nhat)
 // ============================================================================
 FourVector::FourVector()
 {
-
+    for (int n = 0; n < 4; ++n)
+    {
+        components[n] = 0.0;
+    }
 }
 
 FourVector::FourVector (const FourVector& other)
@@ -134,6 +137,12 @@ FourVector FourVector::fromThreeVelocity (double vx, double vy, double vz)
     return FourVector (gm, gm * vx, gm * vy, gm * vz);
 }
 
+FourVector FourVector::fromFourVelocity (double ux, double uy, double uz)
+{
+    double gm = std::sqrt (1 + (ux * ux + uy * uy + uz * uz));
+    return FourVector (gm, ux, uy, uz);
+}
+
 FourVector FourVector::nullWithUnitVector (UnitVector nhat)
 {
     double u[4] = {1, 0, 0, 0};
@@ -160,6 +169,11 @@ double FourVector::getTimeComponent() const
     return components[0];
 }
 
+const double& FourVector::operator[] (int index) const
+{
+    return components[index];
+}
+
 double FourVector::getThreeVelocityMagnitude() const
 {
     const double *u = components;
@@ -172,14 +186,14 @@ UnitVector FourVector::getUnitThreeVector() const
     return UnitVector::normalizeFrom (u[1], u[2], u[3]);
 }
 
-FourVector FourVector::operator+(const FourVector& other) const
+FourVector FourVector::operator+ (const FourVector& other) const
 {
     const double *u = components;
     const double *v = other.components;
     return FourVector (u[0] + v[0], u[1] + v[1], u[2] + v[2], u[3] + v[3]);
 }
 
-FourVector FourVector::operator-(const FourVector& other) const
+FourVector FourVector::operator- (const FourVector& other) const
 {
     const double *u = components;
     const double *v = other.components;
