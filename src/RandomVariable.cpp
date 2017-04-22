@@ -86,6 +86,22 @@ RandomVariable RandomVariable::uniformOver (double x0, double x1)
     return new KnownQnt ([=] (double F) { return x0 + (x1 - x0) * F; });
 }
 
+RandomVariable RandomVariable::exponential (double beta)
+{
+    return new KnownQnt ([=] (double F) { return -std::log (1 - F) * beta; });
+}
+#include <iostream>
+RandomVariable RandomVariable::powerLaw (double p, double a, double b)
+{
+    return new KnownQnt ([=] (double F)
+        {
+            return std::pow (
+                + (1 - F) * std::pow (a, 1 + p)
+                + (0 + F) * std::pow (b, 1 + p),
+                1 / (1 + p));
+        });
+}
+
 RandomVariable::RandomVariable (SamplingScheme* scheme) : scheme (scheme)
 {
 
@@ -112,13 +128,23 @@ std::vector<double> RandomVariable::sample (int numberOfSamples) const
     return samples;
 }
 
-void RandomVariable::outputPdf (std::ostream& stream, int numberOfSamples) const
+void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSamples) const
+{
+    outputDistribution (stream, numberOfSamples, [] (double x) { return x; });
+}
+
+void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSamples,
+    std::function<double (double)> functionOfX) const
 {
     std::vector<double> samples = sample (numberOfSamples);
+
+    for (auto& x : samples)
+    {
+        x = functionOfX (x);
+    }
 
     TabulatedFunction f = TabulatedFunction::makeHistogram (samples, 256,
         TabulatedFunction::useEqualBinWidthsLogarithmic, true, true, false);
 
     f.outputTable (stream);
 }
-

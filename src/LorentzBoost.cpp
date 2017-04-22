@@ -4,7 +4,7 @@
 #define DOT(Ai, x) (Ai)[0] * (x)[0] + (Ai)[1] * (x)[1] + (Ai)[2] * (x)[2] + (Ai)[3] * (x)[3]
 
 
-LorentzBoost::LorentzBoost()
+LorentzBoost::LorentzBoost() : LorentzBoost (FourVector (1, 0, 0, 0))
 {
 
 }
@@ -15,11 +15,14 @@ LorentzBoost::LorentzBoost (const FourVector& boostVector) : boostVector (boostV
     double nx = boostVector.components[1];
     double ny = boostVector.components[2];
     double nz = boostVector.components[3];
-    double nt = sqrt (nx * nx + ny * ny + nz * nz);
+    double nt = std::sqrt (nx * nx + ny * ny + nz * nz);
 
-    nx /= nt;
-    ny /= nt;
-    nz /= nt;
+    if (std::fabs (nt) > 1e-12)
+    {
+        nx /= nt;
+        ny /= nt;
+        nz /= nt;
+    }
 
     elements[0][0] = gm;
     elements[1][1] = 1 + (gm - 1) * nx * nx;

@@ -180,6 +180,12 @@ double FourVector::getThreeVelocityMagnitude() const
     return std::sqrt (1 - 1 / (u[0] * u[0]));
 }
 
+double FourVector::getSpatialComponentMagnitude() const
+{
+    const double *u = components;
+    return std::sqrt (u[1] * u[1] + u[2] * u[2] + u[3] * u[3]);
+}
+
 UnitVector FourVector::getUnitThreeVector() const
 {
     const double *u = components;

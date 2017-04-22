@@ -53,6 +53,17 @@ public:
     static RandomVariable uniformOver (double x0, double x1);
 
     /**
+    Return an exponential random variable with time-constant beta.
+    */
+    static RandomVariable exponential (double beta);
+
+    /**
+    Return a power-law distributed random variable between a and b, with
+    index p.
+    */
+    static RandomVariable powerLaw (double p, double a, double b);
+
+    /**
     Make an empty random variable. This cannot be called, it's just here so
     there's a default constructor.
     */
@@ -81,10 +92,17 @@ public:
 
     /**
     Print a table of values representing the PDF of the random variable. This
-    is done by sampling the given number of times, then generating a histogram.
+    is done by sampling the random variable the given number of times and
+    generating a histogram.
     */
-    void outputPdf (std::ostream& stream, int numberOfSamples) const;
+    void outputDistribution (std::ostream& stream, int numberOfSamples) const;
 
+    /**
+    Print a table of values representing the PDF of a function of the random
+    variable.
+    */
+    void outputDistribution (std::ostream& stream, int numberOfSamples,
+        std::function<double (double)> functionOfX) const;
 
 private:
     // Use of shared pointer allows the random variable to be copy-constructed

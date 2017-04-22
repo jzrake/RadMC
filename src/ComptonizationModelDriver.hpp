@@ -32,19 +32,38 @@ public:
         double E = photonEnergy.sample();
         return FourVector::nullWithUnitVector (UnitVector::sampleIsotropic()) * E;
     }
-    Photon (FourVector momentum) : momentum (momentum) {}
+    Photon (FourVector momentum) : momentum (momentum), nextScatteringTime (0) {}
 
     /**
     Update the position four-vector based on the momentum and time step dt.
     */
     void advancePosition (double dt)
     {
-        UnitVector nhat = momentum.getUnitThreeVector();
-        position += FourVector (dt, nhat.getX() * dt, nhat.getY() * dt, nhat.getZ() * dt);
+        position += getDisplacement (dt);
     }
+
+    /**
+    This is just a shortcut for advancing the position to the next scattering
+    time.
+    */
+    void advanceToNextScatteringTime()
+    {
+        advancePosition (nextScatteringTime - position[0]);
+    }
+
+    /**
+    Compute the photon's displacement vector for a time dt.
+    */
+    FourVector getDisplacement (double dt)
+    {
+        UnitVector nhat = momentum.getUnitThreeVector();
+        return FourVector (dt, nhat.getX() * dt, nhat.getY() * dt, nhat.getZ() * dt);
+    }
+
 
     FourVector position;
     FourVector momentum;
+    double nextScatteringTime;
 };
 
 
@@ -63,7 +82,7 @@ public:
     bool shouldRecordIterationInTimeSeries() const override;
     double getRecordForTimeSeries (std::string) const override;
     bool shouldWriteOutput() const override;
-    void writeOutput () const override;
+    void writeOutput() const override;
 
 private:
     Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta);
@@ -73,6 +92,7 @@ private:
 
     RandomVariable electronGammaBeta;
     RandomVariable photonEnergy;
+    RandomVariable nextScatteringTime;
     std::vector<Photon> photons;
 };
 

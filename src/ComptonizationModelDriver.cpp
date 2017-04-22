@@ -66,6 +66,8 @@ void ComptonizationModelDriver::configureFromParameters()
     auto electronPdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
     electronGammaBeta = RandomVariable (new SamplingScheme (electronPdf, urms / 100, urms * 5));
     photonEnergy = RandomVariable::diracDelta (ephot);
+    //photonEnergy = RandomVariable::powerLaw (-2, ephot * 0.01, ephot * 100.0);
+    nextScatteringTime = RandomVariable::exponential (1.0);
 
     for (int n = 0; n < nphot; ++n)
     {
@@ -77,15 +79,19 @@ void ComptonizationModelDriver::configureFromParameters()
 
 void ComptonizationModelDriver::printStartupMessage() const
 {
-    std::string filename = makeFilename (getParameter ("outdir"), "electron-u", ".dat");
-    std::cout << "generating electron four-velocity PDF table as diagnostic -> " << filename << std::endl;
-    std::ofstream out (filename);
-    electronGammaBeta.outputPdf (out, 1e7);
+    std::string filenameU = makeFilename (getParameter ("outdir"), "electron-u", ".dat");
+    std::string filenameE = makeFilename (getParameter ("outdir"), "electron-e", ".dat");
+    std::cout << "electron four-velocity PDF -> " << filenameU << std::endl;
+    std::cout << "electron four-velocity PDF -> " << filenameE << std::endl;
+    std::ofstream outU (filenameU);
+    std::ofstream outE (filenameE);
+    electronGammaBeta.outputDistribution (outU, 1e5);
+    electronGammaBeta.outputDistribution (outE, 1e5, [] (double u) { return std::sqrt (1 + u * u) - 1; });
 }
 
 double ComptonizationModelDriver::getTimestep() const
 {
-    return 1.0;
+    return 1.;
 }
 
 bool ComptonizationModelDriver::shouldContinue() const
@@ -96,19 +102,26 @@ bool ComptonizationModelDriver::shouldContinue() const
 
 void ComptonizationModelDriver::advance (double dt)
 {
-    FourVector::Field velocityField = [] (FourVector x)
-    {
-        double ux = std::tanh (x[2]);
-        return FourVector::fromFourVelocity (ux, 0, 0);
-    };
-
+    Status S = getStatus();
 
     for (auto& p : photons)
     {
-        Electron e = sampleElectronForScattering (p, electronGammaBeta);
-        //Electron e = sampleElectronForScattering (p, velocityField);
-        doComptonScattering (p, e);
-        p.advancePosition (dt);
+        //int numScatterings = 0;
+
+        while (p.nextScatteringTime <= S.simulationTime)
+        {
+            Electron e = sampleElectronForScattering (p, electronGammaBeta);
+            doComptonScattering (p, e);
+            p.advanceToNextScatteringTime();
+            p.nextScatteringTime = p.position[0] + nextScatteringTime.sample();
+            //++numScatterings;
+        }
+
+        //std::cout << numScatterings << std::endl;
+
+        //Electron e = sampleElectronForScattering (p, electronGammaBeta);
+        //doComptonScattering (p, e);
+        //p.advancePosition (dt);
     }
 }
 
@@ -144,7 +157,7 @@ void ComptonizationModelDriver::writeOutput() const
 
     TabulatedFunction hist = TabulatedFunction::makeHistogram (
         energies,
-        256, TabulatedFunction::useEqualBinWidthsLinear,
+        256, TabulatedFunction::useEqualBinWidthsLogarithmic,
         true, true, false);
 
     // Write a new spectrum file

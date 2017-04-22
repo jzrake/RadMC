@@ -106,11 +106,17 @@ public:
     static FourVector fromBetaAndUnitVector (double beta, UnitVector nhat);
 
     /**
-    Return the magnitude of the vector's associated three-velocity, sqrt (1 /
-    u0^2), where u0 is the Lorentz factor. This assumes isFourVelocity() would
-    evaluate to true.
+    Return the magnitude of the vector's associated three-velocity, sqrt (1 -
+    1 / u0^2), where u0 is the Lorentz factor. This assumes isFourVelocity()
+    would evaluate to true.
     */
     double getThreeVelocityMagnitude() const;
+
+    /**
+    Return the norm of the vector's spatial components. This does not assume
+    anything about the four-vector.
+    */
+    double getSpatialComponentMagnitude() const;
 
     /**
     Return a unit vector from this four vector's spatial components.

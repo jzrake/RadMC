@@ -10,5 +10,8 @@
 	{
     	"translate_tabs_to_spaces": true,
 	    "trim_trailing_white_space_on_save": true,
+	    "ecc_use_libclang": true,
+	    "ecc_verbose": true,
+      	"ecc_common_flags": ["-Isrc"]
 	}
 }
