@@ -22,15 +22,13 @@ void TurbulenceModelDriver::makeUserParameters (Variant::NamedValues& params)
 
 void TurbulenceModelDriver::configureFromParameters()
 {
+    PathHelpers::ensureDirectoryExists (getParameter ("outdir"));
+
     cascade = RichardsonCascade (getParameter ("kmax"), getParameter ("bins"));
     cascade.photonMeanFreePath = getParameter ("lstar");
     cascade.radiativeEnergyDensity = getParameter ("urad");
     cascade.cascadePower = 1.0;
-    PathHelpers::ensureDirectoryExists (getParameter ("outdir"));
-}
 
-void TurbulenceModelDriver::printStartupMessage() const
-{
     std::cout << "Photon mean free path: " << cascade.getPhotonMeanFreePathScale() << "\n";
     std::cout << "Viscous scale: " << cascade.getFiducialViscousScale() << "\n";
     std::cout << "Compton power: " << cascade.getFiducialComptonPower() << "\n";

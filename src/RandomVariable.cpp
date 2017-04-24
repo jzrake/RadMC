@@ -1,4 +1,5 @@
 #include <random>
+#include <cassert>
 #include "RandomVariable.hpp"
 #include "TabulatedFunction.hpp"
 
@@ -90,7 +91,7 @@ RandomVariable RandomVariable::exponential (double beta)
 {
     return new KnownQnt ([=] (double F) { return -std::log (1 - F) * beta; });
 }
-#include <iostream>
+
 RandomVariable RandomVariable::powerLaw (double p, double a, double b)
 {
     return new KnownQnt ([=] (double F)
@@ -114,6 +115,7 @@ RandomVariable::RandomVariable (std::function<double (double)> qnt) : scheme (ne
 
 double RandomVariable::sample() const
 {
+    assert (scheme != nullptr);
     return scheme->generate (sampleUniform());
 }
 
@@ -144,7 +146,7 @@ void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSampl
     }
 
     TabulatedFunction f = TabulatedFunction::makeHistogram (samples, 256,
-        TabulatedFunction::useEqualBinWidthsLogarithmic, true, true, false);
+        TabulatedFunction::useEqualBinWidthsLinear, true, true, false);
 
     f.outputTable (stream);
 }

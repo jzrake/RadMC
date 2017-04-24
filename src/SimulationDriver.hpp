@@ -63,7 +63,6 @@ public:
 
     virtual void makeUserParameters (Variant::NamedValues&) = 0;
     virtual void configureFromParameters() = 0;
-    virtual void printStartupMessage() const = 0;
     virtual double getTimestep() const = 0;
     virtual bool shouldContinue() const = 0;
     virtual void advance (double dt) = 0;

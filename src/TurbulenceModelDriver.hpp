@@ -12,7 +12,6 @@ class TurbulenceModelDriver : public SimulationDriver
 public:
     void makeUserParameters (Variant::NamedValues& params) override;
     void configureFromParameters() override;
-    void printStartupMessage() const override;
     double getTimestep() const override;
     void advance (double dt) override;
     bool shouldContinue() const override;

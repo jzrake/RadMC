@@ -75,7 +75,6 @@ public:
     ComptonizationModelDriver();
     void makeUserParameters (Variant::NamedValues& params) override;
     void configureFromParameters() override;
-    void printStartupMessage() const override;
     double getTimestep() const override;
     bool shouldContinue() const override;
     void advance (double dt) override;

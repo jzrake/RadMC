@@ -49,10 +49,12 @@ double QuadratureRule::computeDefiniteIntegral (std::function<double (double)> f
         error = std::fabs ((F1 - F0) / F1);
         N *= 2;
 
-        if (N > 1024)
+        if (N > 1<<14)
         {
             throw std::runtime_error ("QuadratureRule not making progress toward accuracy goal");
         }
+
+        // std::cout << N << " " << error << std::endl;
 
     } while (error > accuracy);
 

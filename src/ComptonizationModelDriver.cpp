@@ -17,7 +17,7 @@ public:
     SamplingScheme (std::function<double (double)> densityFunction, double x0, double x1)
     {
         const int numberOfTableEntries = 256;
-        const double accuracyParameter = 1e-12;
+        const double accuracyParameter = 1e-10;
         const GaussianQuadrature gauss (8);
 
         tabulatedCDF = TabulatedFunction::createTabulatedIntegral (
@@ -52,46 +52,140 @@ void ComptonizationModelDriver::makeUserParameters (Variant::NamedValues& params
     params["cpi"] = 1.0; // Checkpoint interval
     params["tsi"] = 1.0; // Time series interval
     params["theta"] = 0.01; // electron temperature in units of electron rest mass
-    params["ephot"] = 0.1;
+    params["tscat"] = 1.0; // photon scattering time
     params["nphot"] = 4; // log10 of photon number
+    params["ephot"] = 0.1;
+    params["phot_dist_type"] = "delta"; // [delta, plaw, wein]
+    params["phot_dist_lower"] = 1e-2; // in units of the mean energy
+    params["phot_dist_upper"] = 1e+2; // in units of the mean energy
+    params["phot_dist_index"] = -1.0; // index of the photon distribution dn/de
+    params["elec_dist_type"] = "thermal"; // [thermal, plaw]
+    params["elec_dist_lower"] = 1e-2; // in units of the mean energy
+    params["elec_dist_upper"] = 1e+2; // in units of the mean energy
+    params["elec_dist_index"] = -1.0; // index of the photon distribution dn/de
 }
 
 void ComptonizationModelDriver::configureFromParameters()
 {
-    int nphot = std::pow (10, int (getParameter ("nphot")));
-    double kT = getParameter ("theta");
-    double ephot = getParameter ("ephot");
-    double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+    // Ensure the output directory exists
+    // ------------------------------------------------------------------------
+    PathHelpers::ensureDirectoryExists (getParameter ("outdir"));
 
-    auto electronPdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
-    electronGammaBeta = RandomVariable (new SamplingScheme (electronPdf, urms / 100, urms * 5));
-    photonEnergy = RandomVariable::diracDelta (ephot);
-    //photonEnergy = RandomVariable::powerLaw (-2, ephot * 0.01, ephot * 100.0);
-    nextScatteringTime = RandomVariable::exponential (1.0);
+
+    // Configure the initial electron distribution
+    // ------------------------------------------------------------------------
+    std::string eSpectrumType = getParameter ("elec_dist_type");
+
+    if (eSpectrumType == "thermal")
+    {
+        double kT = getParameter ("theta");
+        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+        auto pdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms / 100, urms * 5));
+    }
+    else if (eSpectrumType == "turbulent")
+    {
+        double kT = getParameter ("theta");
+        double E0 = getParameter ("elec_dist_lower");
+        double E1 = getParameter ("elec_dist_upper");
+        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+        auto pdf = [=] (double u)
+        {
+           return std::sqrt (u) * std::exp (-u * u / (urms * urms * 1e-4));
+        };
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * urms, E1 * urms));
+    }
+    else if (eSpectrumType == "multiTemp")
+    {
+        double kT = getParameter ("theta");
+        double E0 = getParameter ("elec_dist_lower");
+        double E1 = getParameter ("elec_dist_upper");
+        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+        auto pdf = [=] (double u)
+        {
+           return 0
+           + 1e+6 * u * std::exp (-u * u / (urms * urms * 1e-4))
+           + 1e+3 * u * std::exp (-u * u / (urms * urms * 1e-1))
+           + 1e-1 * u * std::exp (-u * u / (urms * urms * 1e+3));
+        };
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * urms, E1 * urms));
+    }
+    else if (eSpectrumType == "plaw")
+    {
+        double kT = getParameter ("theta");
+        double E0 = getParameter ("elec_dist_lower");
+        double E1 = getParameter ("elec_dist_upper");
+        double pe = getParameter ("elec_dist_index");
+        electronGammaBeta = RandomVariable::powerLaw (pe, kT * E0, kT * E1);
+    }
+    else
+    {
+        throw std::runtime_error ("[ComptonizationModelDriver::configureFromParameters] "
+            "unknown electron spectrum '" + eSpectrumType + "'");
+    }
+
+
+    // Configure the initial photon distribution
+    // ------------------------------------------------------------------------
+    std::string pSpectrumType = getParameter ("phot_dist_type");
+
+    if (pSpectrumType == "delta")
+    {
+        double ephot = getParameter ("ephot");
+        photonEnergy = RandomVariable::diracDelta (ephot);
+    }
+    else if (pSpectrumType == "plaw")
+    {
+        double ephot = getParameter ("ephot");
+        double E0 = getParameter ("phot_dist_lower");
+        double E1 = getParameter ("phot_dist_upper");
+        double pp = getParameter ("phot_dist_index");
+        photonEnergy = RandomVariable::powerLaw (pp, ephot * E0, ephot * E1);
+    }
+    else if (pSpectrumType == "wein")
+    {
+        throw std::runtime_error ("[ComptonizationModelDriver::configureFromParameters] "
+            "Wein spectrum not yet implemented");
+    }
+    else
+    {
+        throw std::runtime_error ("[ComptonizationModelDriver::configureFromParameters] "
+            "unknown photon spectrum '" + pSpectrumType + "'");
+    }
+
+
+    // Populate the initial photon distribution
+    // ------------------------------------------------------------------------
+    int nphot = std::pow (10, int (getParameter ("nphot")));
+    nextScatteringTime = RandomVariable::exponential (getParameter ("tscat"));
 
     for (int n = 0; n < nphot; ++n)
     {
-        photons.push_back (Photon::sampleIsotropic (photonEnergy));
+        Photon p = Photon::sampleIsotropic (photonEnergy);
+
+        // This ensures that the right number of photons will scatter on the
+        // first time step.
+        p.nextScatteringTime = -getTimestep() + nextScatteringTime.sample();
+        
+        photons.push_back (p);
     }
 
-    PathHelpers::ensureDirectoryExists (getParameter ("outdir"));
-}
 
-void ComptonizationModelDriver::printStartupMessage() const
-{
+    // Write diagnostics of the initial condition
+    // ------------------------------------------------------------------------
     std::string filenameU = makeFilename (getParameter ("outdir"), "electron-u", ".dat");
     std::string filenameE = makeFilename (getParameter ("outdir"), "electron-e", ".dat");
     std::cout << "electron four-velocity PDF -> " << filenameU << std::endl;
     std::cout << "electron four-velocity PDF -> " << filenameE << std::endl;
     std::ofstream outU (filenameU);
     std::ofstream outE (filenameE);
-    electronGammaBeta.outputDistribution (outU, 1e5);
-    electronGammaBeta.outputDistribution (outE, 1e5, [] (double u) { return std::sqrt (1 + u * u) - 1; });
+    electronGammaBeta.outputDistribution (outU, 1e7);
+    electronGammaBeta.outputDistribution (outE, 1e7, [] (double u) { return std::log (std::sqrt (1 + u * u) - 1); });
 }
 
 double ComptonizationModelDriver::getTimestep() const
 {
-    return 1.;
+    return 1.0;
 }
 
 bool ComptonizationModelDriver::shouldContinue() const
@@ -103,25 +197,19 @@ bool ComptonizationModelDriver::shouldContinue() const
 void ComptonizationModelDriver::advance (double dt)
 {
     Status S = getStatus();
+    int numScatterings = 0;
 
     for (auto& p : photons)
     {
-        //int numScatterings = 0;
-
         while (p.nextScatteringTime <= S.simulationTime)
         {
             Electron e = sampleElectronForScattering (p, electronGammaBeta);
             doComptonScattering (p, e);
             p.advanceToNextScatteringTime();
-            p.nextScatteringTime = p.position[0] + nextScatteringTime.sample();
-            //++numScatterings;
+            p.nextScatteringTime = p.position.getTimeComponent() + nextScatteringTime.sample();
+
+            ++numScatterings;
         }
-
-        //std::cout << numScatterings << std::endl;
-
-        //Electron e = sampleElectronForScattering (p, electronGammaBeta);
-        //doComptonScattering (p, e);
-        //p.advancePosition (dt);
     }
 }
 
@@ -152,12 +240,13 @@ void ComptonizationModelDriver::writeOutput() const
 
     for (auto& p : photons)
     {
-        energies.push_back (p.momentum.getTimeComponent());
+        energies.push_back (std::log (p.momentum.getTimeComponent()));
     }
 
     TabulatedFunction hist = TabulatedFunction::makeHistogram (
         energies,
-        256, TabulatedFunction::useEqualBinWidthsLogarithmic,
+        //256, TabulatedFunction::useEqualBinWidthsLogarithmic,
+        256, TabulatedFunction::useEqualBinWidthsLinear,
         true, true, false);
 
     // Write a new spectrum file

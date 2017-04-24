@@ -37,7 +37,6 @@ void SimulationDriver::run (int argc, const char *argv[])
     }
 
     configureFromParameters();
-    printStartupMessage();
 
     while (shouldContinue())
     {

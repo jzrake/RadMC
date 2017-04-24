@@ -131,8 +131,8 @@ TabulatedFunction TabulatedFunction::makeHistogram (
         return TabulatedFunction (std::vector<double>(), std::vector<double>(), useArbitraryBinSpacing);
     }
 
-    double x0 = *std::min_element (samples.begin(), samples.end()) - 1e-12; // To ensure we catch the first and last samples
-    double x1 = *std::max_element (samples.begin(), samples.end()) + 1e-12;
+    double x0 = *std::min_element (samples.begin(), samples.end()) - 1e-10; // To ensure we catch the first and last samples
+    double x1 = *std::max_element (samples.begin(), samples.end()) + 1e-10;
 
     std::vector<double> binEdges;
     std::vector<double> binValues (numberOfBins + 1, 0.0);

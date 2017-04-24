@@ -13,6 +13,5 @@ int main (int argc, const char *argv[])
     ComptonizationModelDriver comptonizer;
     comptonizer.run (argc, argv);
 
-
     return 0;
 }
