@@ -177,7 +177,7 @@ const double& FourVector::operator[] (int index) const
 double FourVector::getThreeVelocityMagnitude() const
 {
     const double *u = components;
-    return std::sqrt (1 - 1 / (u[0] * u[0]));
+    return std::sqrt (u[1] * u[1] + u[2] * u[2] + u[3] * u[3]) / u[0];
 }
 
 double FourVector::getThreeVelocityAlong (const UnitVector& nhat) const
@@ -247,7 +247,7 @@ double FourVector::operator* (const FourVector& other) const
 {
     const double *u = components;
     const double *v = other.components;
-    return -v[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3];
+    return -u[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3];
 }
 
 FourVector FourVector::transformedBy (const LorentzBoost& L) const

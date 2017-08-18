@@ -159,7 +159,7 @@ void ComptonizationModelDriver::configureFromParameters()
     // Populate the initial photon distribution
     // ------------------------------------------------------------------------
     int nphot = std::pow (10, int (getParameter ("nphot")));
-    nextScatteringTime = RandomVariable::exponential (getParameter ("tscat"));
+    fluidKineticEnergy = 0.5;
 
     for (int n = 0; n < nphot; ++n)
     {
@@ -203,18 +203,25 @@ void ComptonizationModelDriver::advance (double dt)
 {
     Status S = getStatus();
     int numScatterings = 0;
+    double photonPerMass = 1e-6; // Set to something realistic
 
     for (auto& p : photons)
     {
         while (p.nextScatteringTime <= S.simulationTime)
         {
-            Electron e = sampleElectronForScattering (p, electronGammaBeta);
-            doComptonScattering (p, e);
-            p.advanceToNextScatteringTime();
-            //p.nextScatteringTime = p.position.getTimeComponent() + nextScatteringTime.sample();
-            computeNextPhotonScatteringAndParcelVelocity (p);
+            Electron e = sampleElectronForScatteringInParcel (p, electronGammaBeta);
+            FourVector dp = doComptonScattering (p, e); // dp is the change in photon momentum
 
+            // When dp is negative, the electron population gained energy in
+            // the collision. The work done against fluid is vfluid.delta_p
+            // for the photon.
+            auto vf = p.fluidParcelFourVelocity;
+            electronPopulation.momentum -= dp * photonPerMass;
+            fluidKineticEnergy -= (dp * vf + dp[0] * vf[0]) * photonPerMass; // dot product of the spatial components
             ++numScatterings;
+
+            p.advanceToNextScatteringTime();
+            computeNextPhotonScatteringAndParcelVelocity (p);
         }
     }
 }
@@ -283,17 +290,30 @@ Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& p
     return FourVector::fromBetaAndUnitVector (electronV, nhat);
 }
 
+Electron ComptonizationModelDriver::sampleElectronForScatteringInParcel (const Photon& photon, RandomVariable& electronGammaBeta) const
+{
+    LorentzBoost L (photon.fluidParcelFourVelocity);
+
+    // Get the photon in the fluid rest frame
+    Photon q = photon.transformedBy (L);
+    Electron f = sampleElectronForScattering (q, electronGammaBeta);
+    Electron e = f.transformedBy (L.inverted());
+    return e;
+}
+
 void ComptonizationModelDriver::computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const
 {
-    double betaEllStar = 0.5; // This will be taken from the turbulent field soon
+    double betaEllStar = std::sqrt (fluidKineticEnergy); // use non-relativistic expression
     auto uf = FourVector::fromBetaAndUnitVector (betaEllStar, UnitVector::sampleIsotropic());
     double betaDotNhat = uf.getThreeVelocityAlong (photon.momentum.getUnitThreeVector());
     double effectiveTau = double (getParameter ("tscat")) * (1 - betaDotNhat) * uf.getLorentzFactor();
     photon.fluidParcelFourVelocity = uf;
-    photon.nextScatteringTime = RandomVariable::exponential (effectiveTau).sample(); // exponential is cheap to create, no table
+    photon.nextScatteringTime = (0.0
+        + photon.position.getTimeComponent()
+        + RandomVariable::exponential (effectiveTau).sample()); // exponential is cheap to create, no table
 }
 
-void ComptonizationModelDriver::doComptonScattering (Photon& photon, Electron& electron) const
+FourVector ComptonizationModelDriver::doComptonScattering (Photon& photon, Electron& electron) const
 {
     // Photon four-momentum in the electron rest frame
     LorentzBoost L (electron.getFourVelocity());
@@ -316,6 +336,8 @@ void ComptonizationModelDriver::doComptonScattering (Photon& photon, Electron& e
     // Change the photon and electron energy-momentum vector.
     photon.momentum   += dp;
     electron.momentum -= dp;
+
+    return dp;
 }
 
 double ComptonizationModelDriver::getMeanPhotonEnergy() const

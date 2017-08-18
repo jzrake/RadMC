@@ -18,6 +18,11 @@ public:
         return momentum;
     }
 
+    Electron transformedBy (const LorentzBoost& L) const
+    {
+        return Electron (momentum.transformedBy (L));
+    }
+
     FourVector momentum;
 };
 
@@ -32,7 +37,17 @@ public:
         double E = photonEnergy.sample();
         return FourVector::nullWithUnitVector (UnitVector::sampleIsotropic()) * E;
     }
+    Photon() : nextScatteringTime (0) {}
     Photon (FourVector momentum) : momentum (momentum), nextScatteringTime (0) {}
+
+    Photon transformedBy (const LorentzBoost& L) const
+    {
+        Photon prime;
+        prime.position = position.transformedBy (L);
+        prime.momentum = momentum.transformedBy (L);
+        prime.fluidParcelFourVelocity = fluidParcelFourVelocity.transformedBy (L);
+        return prime;
+    }
 
     /**
     Update the position four-vector based on the momentum and time step dt.
@@ -60,11 +75,10 @@ public:
         return FourVector (dt, nhat.getX() * dt, nhat.getY() * dt, nhat.getZ() * dt);
     }
 
-
     FourVector position;
     FourVector momentum;
-    double nextScatteringTime;
     FourVector fluidParcelFourVelocity;
+    double nextScatteringTime;
 };
 
 
@@ -86,14 +100,16 @@ public:
 
 private:
     Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta) const;
+    Electron sampleElectronForScatteringInParcel (const Photon& photon, RandomVariable& electronGammaBeta) const;
     void computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const;
-    void doComptonScattering (Photon& photon, Electron& electron) const;
+    FourVector doComptonScattering (Photon& photon, Electron& electron) const;
     double getMeanPhotonEnergy() const;
 
     RandomVariable electronGammaBeta;
     RandomVariable photonEnergy;
-    RandomVariable nextScatteringTime;
     std::vector<Photon> photons;
+    Electron electronPopulation;
+    double fluidKineticEnergy;
 };
 
 #endif
