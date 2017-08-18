@@ -1,4 +1,3 @@
-
 #include <sys/stat.h>
 #include "PathHelpers.hpp"
 

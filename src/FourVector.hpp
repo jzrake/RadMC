@@ -113,6 +113,12 @@ public:
     double getThreeVelocityMagnitude() const;
 
     /**
+    Compute beta.nhat where beta is the three-velocity vector associated with
+    this four-vector.
+    */
+    double getThreeVelocityAlong (const UnitVector& nhat) const;
+
+    /**
     Return the norm of the vector's spatial components. This does not assume
     anything about the four-vector.
     */
@@ -127,6 +133,7 @@ public:
     Return the time component u[0] of the four vector.
     */
     double getTimeComponent() const;
+    double getLorentzFactor() const { return getTimeComponent(); }
 
     /**
     Return one of the components. This function does not do a range check on

@@ -135,18 +135,25 @@ void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSampl
     outputDistribution (stream, numberOfSamples, [] (double x) { return x; });
 }
 
+#include <iostream>
+
 void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSamples,
     std::function<double (double)> functionOfX) const
 {
     std::vector<double> samples = sample (numberOfSamples);
 
+    double xbar = 0;
+
     for (auto& x : samples)
     {
         x = functionOfX (x);
+        xbar += x;
     }
 
     TabulatedFunction f = TabulatedFunction::makeHistogram (samples, 256,
-        TabulatedFunction::useEqualBinWidthsLinear, true, true, false);
+        TabulatedFunction::useEqualBinWidthsLogarithmic, true, true, false);
+
+    std::cout << "[RandomVariable::outputDistribution] " << xbar / numberOfSamples << std::endl;
 
     f.outputTable (stream);
 }

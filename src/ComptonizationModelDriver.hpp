@@ -64,6 +64,7 @@ public:
     FourVector position;
     FourVector momentum;
     double nextScatteringTime;
+    FourVector fluidParcelFourVelocity;
 };
 
 
@@ -84,9 +85,9 @@ public:
     void writeOutput() const override;
 
 private:
-    Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta);
-    Electron sampleElectronForScattering (const Photon& photon, const FourVector::Field& field);
-    void doComptonScattering (Photon& photon, Electron& electron);
+    Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta) const;
+    void computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const;
+    void doComptonScattering (Photon& photon, Electron& electron) const;
     double getMeanPhotonEnergy() const;
 
     RandomVariable electronGammaBeta;

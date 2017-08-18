@@ -97,7 +97,7 @@ std::function<double (double)> Distributions::makePitchAngle (double velocityBet
         {
             return [=] (double pitchAngleMu)
             {
-                return 0.5 * (1 - velocityBeta * pitchAngleMu);
+                return 0.5 * (1 + pitchAngleMu + 0.5 * velocityBeta * (1 - pitchAngleMu * pitchAngleMu));
             };
         }
         case Qnt:

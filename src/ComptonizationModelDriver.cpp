@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <fstream>
 #include <sstream>
+#include <cassert>
 #include "LorentzBoost.hpp"
 #include "Distributions.hpp"
 #include "ComptonizationModelDriver.hpp"
@@ -54,6 +55,7 @@ void ComptonizationModelDriver::makeUserParameters (Variant::NamedValues& params
     params["theta"] = 0.01; // electron temperature in units of electron rest mass
     params["tscat"] = 1.0; // photon scattering time
     params["nphot"] = 4; // log10 of photon number
+    params["nelec"] = 6; // log10 of electron number (currently for diagnostics only)
     params["ephot"] = 0.1;
     params["phot_dist_type"] = "delta"; // [delta, plaw, wein]
     params["phot_dist_lower"] = 1e-2; // in units of the mean energy
@@ -79,36 +81,36 @@ void ComptonizationModelDriver::configureFromParameters()
     if (eSpectrumType == "thermal")
     {
         double kT = getParameter ("theta");
+        double E0 = getParameter ("elec_dist_lower");
+        double E1 = getParameter ("elec_dist_upper");
         double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
         auto pdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
-        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms / 100, urms * 5));
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * urms, E1 * urms));
+    }
+    else if (eSpectrumType == "delta")
+    {
+        double kT = getParameter ("theta");
+        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+        electronGammaBeta = RandomVariable::diracDelta (urms);
+    }
+    else if (eSpectrumType == "multidelta")
+    {
+        double kT = getParameter ("theta");
+        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+        auto qnt = [=] (double F) { return F < 0.5 ? 0.1 * urms : std::sqrt (2) * urms; };
+        electronGammaBeta = RandomVariable::fromQnt (qnt);
     }
     else if (eSpectrumType == "turbulent")
     {
         double kT = getParameter ("theta");
         double E0 = getParameter ("elec_dist_lower");
         double E1 = getParameter ("elec_dist_upper");
-        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+        double sig = std::sqrt (12. / 15 * kT);
         auto pdf = [=] (double u)
         {
-           return std::sqrt (u) * std::exp (-u * u / (urms * urms * 1e-4));
+           return std::sqrt (u) * std::exp (-u / sig);
         };
-        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * urms, E1 * urms));
-    }
-    else if (eSpectrumType == "multiTemp")
-    {
-        double kT = getParameter ("theta");
-        double E0 = getParameter ("elec_dist_lower");
-        double E1 = getParameter ("elec_dist_upper");
-        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
-        auto pdf = [=] (double u)
-        {
-           return 0
-           + 1e+6 * u * std::exp (-u * u / (urms * urms * 1e-4))
-           + 1e+3 * u * std::exp (-u * u / (urms * urms * 1e-1))
-           + 1e-1 * u * std::exp (-u * u / (urms * urms * 1e+3));
-        };
-        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * urms, E1 * urms));
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * sig, E1 * sig));
     }
     else if (eSpectrumType == "plaw")
     {
@@ -163,9 +165,11 @@ void ComptonizationModelDriver::configureFromParameters()
     {
         Photon p = Photon::sampleIsotropic (photonEnergy);
 
+        computeNextPhotonScatteringAndParcelVelocity (p);
+
         // This ensures that the right number of photons will scatter on the
         // first time step.
-        p.nextScatteringTime = -getTimestep() + nextScatteringTime.sample();
+        // p.nextScatteringTime = -getTimestep() + nextScatteringTime.sample();
         
         photons.push_back (p);
     }
@@ -173,14 +177,15 @@ void ComptonizationModelDriver::configureFromParameters()
 
     // Write diagnostics of the initial condition
     // ------------------------------------------------------------------------
+    int nelec = std::pow (10, int (getParameter ("nelec")));
     std::string filenameU = makeFilename (getParameter ("outdir"), "electron-u", ".dat");
     std::string filenameE = makeFilename (getParameter ("outdir"), "electron-e", ".dat");
     std::cout << "electron four-velocity PDF -> " << filenameU << std::endl;
-    std::cout << "electron four-velocity PDF -> " << filenameE << std::endl;
+    std::cout << "electron energy PDF -> " << filenameE << std::endl;
     std::ofstream outU (filenameU);
     std::ofstream outE (filenameE);
-    electronGammaBeta.outputDistribution (outU, 1e7);
-    electronGammaBeta.outputDistribution (outE, 1e7, [] (double u) { return std::log (std::sqrt (1 + u * u) - 1); });
+    //electronGammaBeta.outputDistribution (outU, nelec);
+    electronGammaBeta.outputDistribution (outE, nelec, [] (double u) { return std::sqrt (1 + u * u) - 1; });
 }
 
 double ComptonizationModelDriver::getTimestep() const
@@ -206,7 +211,8 @@ void ComptonizationModelDriver::advance (double dt)
             Electron e = sampleElectronForScattering (p, electronGammaBeta);
             doComptonScattering (p, e);
             p.advanceToNextScatteringTime();
-            p.nextScatteringTime = p.position.getTimeComponent() + nextScatteringTime.sample();
+            //p.nextScatteringTime = p.position.getTimeComponent() + nextScatteringTime.sample();
+            computeNextPhotonScatteringAndParcelVelocity (p);
 
             ++numScatterings;
         }
@@ -224,7 +230,7 @@ double ComptonizationModelDriver::getRecordForTimeSeries (std::string name) cons
 {
     if (name == "simulationTime") return getStatus().simulationTime;
     if (name == "meanPhotonEnergy") return getMeanPhotonEnergy();
-    throw std::runtime_error ("unknown time series name '" + name + "'");
+    assert (false);
 }
 
 bool ComptonizationModelDriver::shouldWriteOutput() const
@@ -240,13 +246,13 @@ void ComptonizationModelDriver::writeOutput() const
 
     for (auto& p : photons)
     {
-        energies.push_back (std::log (p.momentum.getTimeComponent()));
+        energies.push_back (p.momentum.getTimeComponent());
     }
 
     TabulatedFunction hist = TabulatedFunction::makeHistogram (
         energies,
-        //256, TabulatedFunction::useEqualBinWidthsLogarithmic,
-        256, TabulatedFunction::useEqualBinWidthsLinear,
+        256, TabulatedFunction::useEqualBinWidthsLogarithmic,
+        //256, TabulatedFunction::useEqualBinWidthsLinear,
         true, true, false);
 
     // Write a new spectrum file
@@ -261,7 +267,7 @@ void ComptonizationModelDriver::writeOutput() const
     writeTimeSeriesData (tseries);
 }
 
-Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta)
+Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta) const
 {
     // Sample the electron speed (converted from gammaBeta).
     double electronU = electronGammaBeta.sample();
@@ -277,12 +283,17 @@ Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& p
     return FourVector::fromBetaAndUnitVector (electronV, nhat);
 }
 
-Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, const FourVector::Field& field)
+void ComptonizationModelDriver::computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const
 {
-    return field (photon.position);
+    double betaEllStar = 0.5; // This will be taken from the turbulent field soon
+    auto uf = FourVector::fromBetaAndUnitVector (betaEllStar, UnitVector::sampleIsotropic());
+    double betaDotNhat = uf.getThreeVelocityAlong (photon.momentum.getUnitThreeVector());
+    double effectiveTau = double (getParameter ("tscat")) * (1 - betaDotNhat) * uf.getLorentzFactor();
+    photon.fluidParcelFourVelocity = uf;
+    photon.nextScatteringTime = RandomVariable::exponential (effectiveTau).sample(); // exponential is cheap to create, no table
 }
 
-void ComptonizationModelDriver::doComptonScattering (Photon& photon, Electron& electron)
+void ComptonizationModelDriver::doComptonScattering (Photon& photon, Electron& electron) const
 {
     // Photon four-momentum in the electron rest frame
     LorentzBoost L (electron.getFourVelocity());
