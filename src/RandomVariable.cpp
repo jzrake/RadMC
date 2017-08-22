@@ -153,7 +153,7 @@ void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSampl
     TabulatedFunction f = TabulatedFunction::makeHistogram (samples, 256,
         TabulatedFunction::useEqualBinWidthsLogarithmic, true, true, false);
 
-    std::cout << "[RandomVariable::outputDistribution] " << xbar / numberOfSamples << std::endl;
+    // std::cout << "[RandomVariable::outputDistribution] " << xbar / numberOfSamples << std::endl;
 
     f.outputTable (stream);
 }

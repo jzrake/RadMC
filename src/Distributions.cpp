@@ -82,6 +82,11 @@ std::function<double (double)> Distributions::makeMaxwellJuttner (double tempera
     }
 }
 
+std::function<double (double)> Distributions::makeMaxwellian (double temperatureTheta, FunctionType type)
+{
+    return temperatureTheta < 1e-2 ? makeMaxwellBoltzmann (temperatureTheta, type) : makeMaxwellJuttner (temperatureTheta, type);
+}
+
 std::function<double (double)> Distributions::makePitchAngle (double velocityBeta, FunctionType type)
 {
     switch (type)

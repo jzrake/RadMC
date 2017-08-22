@@ -103,13 +103,23 @@ private:
     Electron sampleElectronForScatteringInParcel (const Photon& photon, RandomVariable& electronGammaBeta) const;
     void computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const;
     FourVector doComptonScattering (Photon& photon, Electron& electron) const;
-    double getMeanPhotonEnergy() const;
+    double getTotalPhotonEnergyMC() const;
+    double getMeanPhotonEnergy() const;    
+    double getSpecificPhotonEnergy() const;
+    double getElectronTemperature() const;
+    double getSpecificInternalEnergy (double electronTemperature) const;
+    void regenerateElectronVelocityDistribution (double electronTemperature);
 
     RandomVariable electronGammaBeta;
     RandomVariable photonEnergy;
     std::vector<Photon> photons;
     Electron electronPopulation;
+    Photon photonPopulation;
     double fluidKineticEnergy;
+
+
+    double photonPerMass;
+    double meanParticleMass; // := mbar / me, where mbar := (np mp + ne me) / (np + ne) ~ mp
 };
 
 #endif

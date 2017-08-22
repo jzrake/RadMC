@@ -1,5 +1,6 @@
 #include <cmath>
 #include <stdexcept>
+#include <iostream>
 #include "QuadratureRule.hpp"
 
 
@@ -54,7 +55,7 @@ double QuadratureRule::computeDefiniteIntegral (std::function<double (double)> f
             throw std::runtime_error ("QuadratureRule not making progress toward accuracy goal");
         }
 
-        // std::cout << N << " " << error << std::endl;
+        // std::cout << N << " " << f(x0) << " " << f(x1) << " " << error << std::endl;
 
     } while (error > accuracy);
 

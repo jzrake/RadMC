@@ -140,6 +140,7 @@ public:
     the index.
     */
     const double& operator[] (int index) const;
+    double& operator[] (int index);
 
     /**
     Return four vector addition.
@@ -170,6 +171,11 @@ public:
     Return four vector with all components multiplied by the given scalar.
     */
     FourVector operator* (double scalar) const;
+
+    /**
+    Return four vector with all components divided by the given scalar.
+    */
+    FourVector operator/ (double scalar) const;
 
     /**
     Return the four vector u' = L * u.

@@ -174,6 +174,11 @@ const double& FourVector::operator[] (int index) const
     return components[index];
 }
 
+double& FourVector::operator[] (int index)
+{
+    return components[index];
+}
+
 double FourVector::getThreeVelocityMagnitude() const
 {
     const double *u = components;
@@ -241,6 +246,13 @@ FourVector FourVector::operator* (double scalar) const
     const double *u = components;
     const double s = scalar;
     return FourVector (u[0] * s, u[1] * s, u[2] * s, u[3] * s);
+}
+
+FourVector FourVector::operator/ (double scalar) const
+{
+    const double *u = components;
+    const double s = scalar;
+    return FourVector (u[0] / s, u[1] / s, u[2] / s, u[3] / s);
 }
 
 double FourVector::operator* (const FourVector& other) const

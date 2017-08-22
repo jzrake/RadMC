@@ -15,6 +15,7 @@ public:
     static std::function<double (double)> makeGaussian (double meanMu, double stdDeviationSigma, FunctionType type);
     static std::function<double (double)> makeMaxwellBoltzmann (double temperatureTheta, FunctionType type);
     static std::function<double (double)> makeMaxwellJuttner (double temperatureTheta, FunctionType type);
+    static std::function<double (double)> makeMaxwellian (double temperatureTheta, FunctionType type);
     static std::function<double (double)> makePitchAngle (double velocityBeta, FunctionType type);
 };
 

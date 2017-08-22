@@ -44,6 +44,9 @@ ComptonizationModelDriver::ComptonizationModelDriver()
 {
     addTimeSeries ("simulationTime");
     addTimeSeries ("meanPhotonEnergy");
+    addTimeSeries ("specificPhotonEnergy");
+    addTimeSeries ("specificElectronEnergy");
+    addTimeSeries ("specificTurbulentEnergy");
 }
 
 void ComptonizationModelDriver::makeUserParameters (Variant::NamedValues& params)
@@ -55,16 +58,9 @@ void ComptonizationModelDriver::makeUserParameters (Variant::NamedValues& params
     params["theta"] = 0.01; // electron temperature in units of electron rest mass
     params["tscat"] = 1.0; // photon scattering time
     params["nphot"] = 4; // log10 of photon number
+    params["nphot_per_mass"] = 1e-6; // Photon number per unit mass
     params["nelec"] = 6; // log10 of electron number (currently for diagnostics only)
     params["ephot"] = 0.1;
-    params["phot_dist_type"] = "delta"; // [delta, plaw, wein]
-    params["phot_dist_lower"] = 1e-2; // in units of the mean energy
-    params["phot_dist_upper"] = 1e+2; // in units of the mean energy
-    params["phot_dist_index"] = -1.0; // index of the photon distribution dn/de
-    params["elec_dist_type"] = "thermal"; // [thermal, plaw]
-    params["elec_dist_lower"] = 1e-2; // in units of the mean energy
-    params["elec_dist_upper"] = 1e+2; // in units of the mean energy
-    params["elec_dist_index"] = -1.0; // index of the photon distribution dn/de
 }
 
 void ComptonizationModelDriver::configureFromParameters()
@@ -76,103 +72,31 @@ void ComptonizationModelDriver::configureFromParameters()
 
     // Configure the initial electron distribution
     // ------------------------------------------------------------------------
-    std::string eSpectrumType = getParameter ("elec_dist_type");
-
-    if (eSpectrumType == "thermal")
-    {
-        double kT = getParameter ("theta");
-        double E0 = getParameter ("elec_dist_lower");
-        double E1 = getParameter ("elec_dist_upper");
-        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
-        auto pdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
-        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * urms, E1 * urms));
-    }
-    else if (eSpectrumType == "delta")
-    {
-        double kT = getParameter ("theta");
-        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
-        electronGammaBeta = RandomVariable::diracDelta (urms);
-    }
-    else if (eSpectrumType == "multidelta")
-    {
-        double kT = getParameter ("theta");
-        double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
-        auto qnt = [=] (double F) { return F < 0.5 ? 0.1 * urms : std::sqrt (2) * urms; };
-        electronGammaBeta = RandomVariable::fromQnt (qnt);
-    }
-    else if (eSpectrumType == "turbulent")
-    {
-        double kT = getParameter ("theta");
-        double E0 = getParameter ("elec_dist_lower");
-        double E1 = getParameter ("elec_dist_upper");
-        double sig = std::sqrt (12. / 15 * kT);
-        auto pdf = [=] (double u)
-        {
-           return std::sqrt (u) * std::exp (-u / sig);
-        };
-        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, E0 * sig, E1 * sig));
-    }
-    else if (eSpectrumType == "plaw")
-    {
-        double kT = getParameter ("theta");
-        double E0 = getParameter ("elec_dist_lower");
-        double E1 = getParameter ("elec_dist_upper");
-        double pe = getParameter ("elec_dist_index");
-        electronGammaBeta = RandomVariable::powerLaw (pe, kT * E0, kT * E1);
-    }
-    else
-    {
-        throw std::runtime_error ("[ComptonizationModelDriver::configureFromParameters] "
-            "unknown electron spectrum '" + eSpectrumType + "'");
-    }
+    meanParticleMass = 1836; // for Zpm = 1
+    double kT = getParameter ("theta");
+    regenerateElectronVelocityDistribution (kT);
+    electronPopulation.momentum[0] = getSpecificInternalEnergy (kT);
 
 
     // Configure the initial photon distribution
     // ------------------------------------------------------------------------
-    std::string pSpectrumType = getParameter ("phot_dist_type");
-
-    if (pSpectrumType == "delta")
-    {
-        double ephot = getParameter ("ephot");
-        photonEnergy = RandomVariable::diracDelta (ephot);
-    }
-    else if (pSpectrumType == "plaw")
-    {
-        double ephot = getParameter ("ephot");
-        double E0 = getParameter ("phot_dist_lower");
-        double E1 = getParameter ("phot_dist_upper");
-        double pp = getParameter ("phot_dist_index");
-        photonEnergy = RandomVariable::powerLaw (pp, ephot * E0, ephot * E1);
-    }
-    else if (pSpectrumType == "wein")
-    {
-        throw std::runtime_error ("[ComptonizationModelDriver::configureFromParameters] "
-            "Wein spectrum not yet implemented");
-    }
-    else
-    {
-        throw std::runtime_error ("[ComptonizationModelDriver::configureFromParameters] "
-            "unknown photon spectrum '" + pSpectrumType + "'");
-    }
-
-
-    // Populate the initial photon distribution
-    // ------------------------------------------------------------------------
+    double ephot = getParameter ("ephot");
     int nphot = std::pow (10, int (getParameter ("nphot")));
-    fluidKineticEnergy = 0.5;
+    photonPerMass = getParameter ("nphot_per_mass"); // Photon number per unit mass
+    photonEnergy = RandomVariable::diracDelta (ephot);
 
     for (int n = 0; n < nphot; ++n)
     {
         Photon p = Photon::sampleIsotropic (photonEnergy);
-
-        computeNextPhotonScatteringAndParcelVelocity (p);
-
-        // This ensures that the right number of photons will scatter on the
-        // first time step.
-        // p.nextScatteringTime = -getTimestep() + nextScatteringTime.sample();
-        
+        computeNextPhotonScatteringAndParcelVelocity (p);        
         photons.push_back (p);
     }
+    photonPopulation.momentum[0] = getSpecificPhotonEnergy();
+
+
+    // Configure the fluid parameters
+    // ------------------------------------------------------------------------
+    fluidKineticEnergy = 0.0;
 
 
     // Write diagnostics of the initial condition
@@ -190,7 +114,7 @@ void ComptonizationModelDriver::configureFromParameters()
 
 double ComptonizationModelDriver::getTimestep() const
 {
-    return 1.0;
+    return 0.1;
 }
 
 bool ComptonizationModelDriver::shouldContinue() const
@@ -203,7 +127,7 @@ void ComptonizationModelDriver::advance (double dt)
 {
     Status S = getStatus();
     int numScatterings = 0;
-    double photonPerMass = 1e-6; // Set to something realistic
+    double weightPerPhoton = 1.0 / photons.size();
 
     for (auto& p : photons)
     {
@@ -212,18 +136,46 @@ void ComptonizationModelDriver::advance (double dt)
             Electron e = sampleElectronForScatteringInParcel (p, electronGammaBeta);
             FourVector dp = doComptonScattering (p, e); // dp is the change in photon momentum
 
+            photonPopulation.momentum   += dp * weightPerPhoton * photonPerMass;
+            electronPopulation.momentum -= dp * weightPerPhoton * photonPerMass;
+
             // When dp is negative, the electron population gained energy in
             // the collision. The work done against fluid is vfluid.delta_p
             // for the photon.
-            auto vf = p.fluidParcelFourVelocity;
-            electronPopulation.momentum -= dp * photonPerMass;
-            fluidKineticEnergy -= (dp * vf + dp[0] * vf[0]) * photonPerMass; // dot product of the spatial components
+            // auto vf = p.fluidParcelFourVelocity;
+            // auto turbToGamma = (dp * vf + dp[0] * vf[0]) * photonPerMass;
+            // electronPopulation.momentum -= dp * photonPerMass;
+            // fluidKineticEnergy -= turbToGamma; // dot product of the spatial components
+
             ++numScatterings;
 
             p.advanceToNextScatteringTime();
             computeNextPhotonScatteringAndParcelVelocity (p);
         }
+
+        // std::cout << std::setprecision(10) << "MC: " << getSpecificPhotonEnergy() << " " << photonPopulation.momentum[0] << "\n";
     }
+
+
+    // Recompute the electron temperature
+    // regenerateElectronVelocityDistribution (kT);
+
+    double kT_elec = getElectronTemperature();
+    double kT_phot = getMeanPhotonEnergy();
+
+    double Eint = getSpecificInternalEnergy (kT_elec);
+    double Erad = getSpecificPhotonEnergy();
+    double Ekin = fluidKineticEnergy;
+
+    std::ostringstream message;
+    message << std::scientific << std::setprecision(4);
+    message << "kT_elec=" << kT_elec << " ";
+    message << "kT_phot=" << kT_phot << " ";
+    message << "Eint=" << Eint << " ";
+    message << "Erad=" << Erad << " ";
+    message << "Ekin=" << Ekin << " ";
+    message << "total=" << Eint + Erad + Ekin << " ";
+    std::cout << message.str() << std::endl;
 }
 
 bool ComptonizationModelDriver::shouldRecordIterationInTimeSeries() const
@@ -237,6 +189,9 @@ double ComptonizationModelDriver::getRecordForTimeSeries (std::string name) cons
 {
     if (name == "simulationTime") return getStatus().simulationTime;
     if (name == "meanPhotonEnergy") return getMeanPhotonEnergy();
+    if (name == "specificPhotonEnergy") return getSpecificPhotonEnergy();
+    if (name == "specificElectronEnergy") return electronPopulation.momentum[0];
+    if (name == "specificTurbulentEnergy") return fluidKineticEnergy;
     assert (false);
 }
 
@@ -340,13 +295,56 @@ FourVector ComptonizationModelDriver::doComptonScattering (Photon& photon, Elect
     return dp;
 }
 
-double ComptonizationModelDriver::getMeanPhotonEnergy() const
+double ComptonizationModelDriver::getTotalPhotonEnergyMC() const
 {
     double totalEnergy = 0.0;
 
-    for (auto& p : photons)
+    for (const auto& p : photons)
     {
-        totalEnergy += p.momentum.getTimeComponent();
+        totalEnergy += p.momentum[0];
     }
-    return totalEnergy / photons.size();
+    return totalEnergy;
+}
+
+double ComptonizationModelDriver::getMeanPhotonEnergy() const
+{
+    double meanEnergyPerPhoton = getTotalPhotonEnergyMC() / photons.size();
+    return meanEnergyPerPhoton;
+}
+
+double ComptonizationModelDriver::getSpecificPhotonEnergy() const
+{
+    double meanEnergyPerPhoton = getMeanPhotonEnergy();
+    double photonEnergyPerMass = meanEnergyPerPhoton * photonPerMass;
+    return photonEnergyPerMass;
+}
+
+double ComptonizationModelDriver::getElectronTemperature() const
+{
+    // This is actually the specific internal energy over all plasma species
+    double e = electronPopulation.momentum[0];
+    return 1. / 3 * meanParticleMass * e;
+}
+
+double ComptonizationModelDriver::getSpecificInternalEnergy (double electronTemperature) const
+{
+    return 3 * electronTemperature / meanParticleMass;
+}
+
+void ComptonizationModelDriver::regenerateElectronVelocityDistribution (double electronTemperature)
+{
+    double kT = electronTemperature;
+    double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+
+    if (kT < 1e-2)
+    {
+        auto pdf = Distributions::makeMaxwellBoltzmann (kT, Distributions::Pdf);
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms * 0.01, urms * 10));        
+    }
+    else
+    {
+        // For relativistic temperatures the sampler can tolerate larger maximum speeds
+        auto pdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms * 0.01, urms * 100));
+    }
 }
