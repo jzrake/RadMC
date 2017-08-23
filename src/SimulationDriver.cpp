@@ -57,7 +57,7 @@ void SimulationDriver::run (int argc, const char *argv[])
 
             std::cout << "[" << std::setfill ('0') << std::setw (6) << status.simulationIter << "] ";
             std::cout << "t=" << std::setprecision (2) << std::fixed << status.simulationTime << " ";
-            std::cout << "dt=" << std::setprecision (2) << std::scientific << dt << "\n";
+            std::cout << "dt=" << std::setprecision (2) << std::scientific << dt <<  " " << getStatusMessage() << "\n";
 
             ++status.outputsWrittenSoFar;
         }

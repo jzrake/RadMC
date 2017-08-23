@@ -5,6 +5,7 @@
 
 
 
+
 class RichardsonCascade
 {
 public:
@@ -51,6 +52,11 @@ public:
     Return the photon mean free path scale (this is just a parameter).
     */
     double getPhotonMeanFreePathScale() const;
+
+    /**
+    Return the Reynolds number largeEddySpeed * outerScale / viscosity.
+    */
+    double getReynoldsNumber (double largeEddySpeed) const;
 
     /**
     Return the scale at which the eddy and viscous damping time scales would

@@ -70,6 +70,7 @@ public:
     virtual double getRecordForTimeSeries (std::string) const { return 0.0; }
     virtual bool shouldWriteOutput() const = 0;
     virtual void writeOutput () const = 0;
+    virtual std::string getStatusMessage() const { return ""; }
 
 private:
     Variant::NamedValues userParams;

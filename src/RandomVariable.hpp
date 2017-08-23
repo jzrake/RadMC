@@ -22,6 +22,8 @@ public:
     */
     static double sampleUniform();
 
+    static double sampleUniformPitch();
+
     /**
     Sample the uniform random variable between 0 and 2 pi using the global RNG.
     */

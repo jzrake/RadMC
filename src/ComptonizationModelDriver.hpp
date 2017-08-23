@@ -4,6 +4,8 @@
 #include "SimulationDriver.hpp"
 #include "TabulatedFunction.hpp"
 #include "FourVector.hpp"
+#include "RichardsonCascade.hpp"
+
 
 
 
@@ -97,29 +99,33 @@ public:
     double getRecordForTimeSeries (std::string) const override;
     bool shouldWriteOutput() const override;
     void writeOutput() const override;
+    std::string getStatusMessage() const override;
 
 private:
     Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta) const;
     Electron sampleElectronForScatteringInParcel (const Photon& photon, RandomVariable& electronGammaBeta) const;
-    void computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const;
     FourVector doComptonScattering (Photon& photon, Electron& electron) const;
+    void computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const;
     double getTotalPhotonEnergyMC() const;
     double getMeanPhotonEnergy() const;    
     double getSpecificPhotonEnergy() const;
     double getElectronTemperature() const;
+    double getPhotonTemperature() const;
     double getSpecificInternalEnergy (double electronTemperature) const;
+    double getComptonCoolingTime() const;
     void regenerateElectronVelocityDistribution (double electronTemperature);
 
     RandomVariable electronGammaBeta;
     RandomVariable photonEnergy;
     std::vector<Photon> photons;
-    Electron electronPopulation;
-    Photon photonPopulation;
+
+    double plasmaInternalEnergy;
     double fluidKineticEnergy;
-
-
-    double photonPerMass;
+    double photonPerMass; // := photon / proton * me / mp / (1 + Z_pm * me / mp)
     double meanParticleMass; // := mbar / me, where mbar := (np mp + ne me) / (np + ne) ~ mp
+    double photonMeanFreePath; // with respect to eddy scale
+
+    RichardsonCascade cascadeModel;
 };
 
 #endif

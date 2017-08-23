@@ -54,12 +54,18 @@ private:
 
 // ========================================================================
 static std::uniform_real_distribution<double> uniform (0, 1);
+static std::uniform_real_distribution<double> uniformPitch (-1, 1);
 static std::uniform_real_distribution<double> uniformAzimuth (0, 2 * M_PI);
 static std::mt19937 engine;
 
 double RandomVariable::sampleUniform()
 {
     return uniform (engine);
+}
+
+double RandomVariable::sampleUniformPitch()
+{
+    return uniformPitch (engine);
 }
 
 double RandomVariable::sampleUniformAzimuth()
@@ -135,7 +141,7 @@ void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSampl
     outputDistribution (stream, numberOfSamples, [] (double x) { return x; });
 }
 
-#include <iostream>
+// #include <iostream>
 
 void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSamples,
     std::function<double (double)> functionOfX) const

@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iostream>
 #include "FourVector.hpp"
 #include "RotationMatrix.hpp"
 #include "LorentzBoost.hpp"
@@ -11,7 +12,7 @@ UnitVector UnitVector::zhat (1, 0);
 
 UnitVector UnitVector::sampleIsotropic()
 {
-    double mu = RandomVariable::sampleUniform();
+    double mu = RandomVariable::sampleUniformPitch();
     double phi = RandomVariable::sampleUniformAzimuth();
     return UnitVector (mu, phi);
 }
@@ -190,7 +191,7 @@ double FourVector::getThreeVelocityAlong (const UnitVector& nhat) const
     const double *u = components;
     double nx, ny, nz;
     nhat.getCartesianComponents (nx, ny, nz);
-    return u[1] * nx + u[2] * ny + u[3] * nz;
+    return (u[1] * nx + u[2] * ny + u[3] * nz) / u[0];
 }
 
 double FourVector::getSpatialComponentMagnitude() const

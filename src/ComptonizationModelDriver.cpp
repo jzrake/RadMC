@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <cassert>
+#include <algorithm>
 #include "LorentzBoost.hpp"
 #include "Distributions.hpp"
 #include "ComptonizationModelDriver.hpp"
@@ -43,7 +44,8 @@ private:
 ComptonizationModelDriver::ComptonizationModelDriver()
 {
     addTimeSeries ("simulationTime");
-    addTimeSeries ("meanPhotonEnergy");
+    addTimeSeries ("photonTemperature");
+    addTimeSeries ("electronTemperature");
     addTimeSeries ("specificPhotonEnergy");
     addTimeSeries ("specificElectronEnergy");
     addTimeSeries ("specificTurbulentEnergy");
@@ -56,11 +58,12 @@ void ComptonizationModelDriver::makeUserParameters (Variant::NamedValues& params
     params["cpi"] = 1.0; // Checkpoint interval
     params["tsi"] = 1.0; // Time series interval
     params["theta"] = 0.01; // electron temperature in units of electron rest mass
-    params["tscat"] = 1.0; // photon scattering time
+    params["ell_star"] = 1e-3; // photon mean free path
     params["nphot"] = 4; // log10 of photon number
-    params["nphot_per_mass"] = 1e-6; // Photon number per unit mass
-    params["nelec"] = 6; // log10 of electron number (currently for diagnostics only)
-    params["ephot"] = 0.1;
+    params["nphot_per_mass"] = 1e-1; // Photon number per unit mass (1 means mp / me photons per baryon)
+    params["nelec"] = 5; // log10 of electron number (currently for diagnostics only)
+    params["ephot"] = 1e-3;
+    params["beta_turb"] = 0.5;
 }
 
 void ComptonizationModelDriver::configureFromParameters()
@@ -72,31 +75,45 @@ void ComptonizationModelDriver::configureFromParameters()
 
     // Configure the initial electron distribution
     // ------------------------------------------------------------------------
-    meanParticleMass = 1836; // for Zpm = 1
+    meanParticleMass = 1836 / 2; // for Zpm = 1
     double kT = getParameter ("theta");
     regenerateElectronVelocityDistribution (kT);
-    electronPopulation.momentum[0] = getSpecificInternalEnergy (kT);
+    plasmaInternalEnergy = getSpecificInternalEnergy (kT);
+
+
+    // Configure the fluid parameters
+    // ------------------------------------------------------------------------
+    fluidKineticEnergy = std::pow (double (getParameter ("beta_turb")), 2);
 
 
     // Configure the initial photon distribution
     // ------------------------------------------------------------------------
     double ephot = getParameter ("ephot");
     int nphot = std::pow (10, int (getParameter ("nphot")));
+    photonMeanFreePath = double (getParameter ("ell_star"));
     photonPerMass = getParameter ("nphot_per_mass"); // Photon number per unit mass
     photonEnergy = RandomVariable::diracDelta (ephot);
 
     for (int n = 0; n < nphot; ++n)
     {
         Photon p = Photon::sampleIsotropic (photonEnergy);
-        computeNextPhotonScatteringAndParcelVelocity (p);        
+        computeNextPhotonScatteringAndParcelVelocity (p);
         photons.push_back (p);
     }
-    photonPopulation.momentum[0] = getSpecificPhotonEnergy();
 
+    if (photonMeanFreePath >= 1.0)
+    {
+        throw std::runtime_error ("ell_star (photon mean free path) must be < 1");
+    }
+    cascadeModel = RichardsonCascade (10 / photonMeanFreePath, 128);
+    cascadeModel.photonMeanFreePath = photonMeanFreePath;
+    cascadeModel.radiativeEnergyDensity = getSpecificPhotonEnergy();
 
-    // Configure the fluid parameters
-    // ------------------------------------------------------------------------
-    fluidKineticEnergy = 0.0;
+    double Re = cascadeModel.getReynoldsNumber (1.0);
+    std::cout << "Optical depth is " << 1.0 / photonMeanFreePath << std::endl;
+    std::cout << "Reynolds number is " << Re << std::endl;
+    std::cout << "Viscous cutoff expected at " << std::pow (Re, 3. / 4) << std::endl;
+    std::cout << "If optical depth tau > Re^(3/4) (=" << std::pow (Re, 3. / 4) << ")" << std::endl;
 
 
     // Write diagnostics of the initial condition
@@ -114,7 +131,11 @@ void ComptonizationModelDriver::configureFromParameters()
 
 double ComptonizationModelDriver::getTimestep() const
 {
-    return 0.1;
+    double cascadeDt = std::max (cascadeModel.getShortestTimeScale(), 1.0) * 0.1;
+    double scatterDt = photonMeanFreePath * 0.1;
+    double coolingDt = getComptonCoolingTime() * 0.1;
+    auto dts = std::vector<double> {cascadeDt, scatterDt, coolingDt};
+    return *std::min_element (dts.begin(), dts.end());
 }
 
 bool ComptonizationModelDriver::shouldContinue() const
@@ -127,6 +148,8 @@ void ComptonizationModelDriver::advance (double dt)
 {
     Status S = getStatus();
     int numScatterings = 0;
+
+
     double weightPerPhoton = 1.0 / photons.size();
 
     for (auto& p : photons)
@@ -136,46 +159,42 @@ void ComptonizationModelDriver::advance (double dt)
             Electron e = sampleElectronForScatteringInParcel (p, electronGammaBeta);
             FourVector dp = doComptonScattering (p, e); // dp is the change in photon momentum
 
-            photonPopulation.momentum   += dp * weightPerPhoton * photonPerMass;
-            electronPopulation.momentum -= dp * weightPerPhoton * photonPerMass;
 
             // When dp is negative, the electron population gained energy in
             // the collision. The work done against fluid is vfluid.delta_p
             // for the photon.
-            // auto vf = p.fluidParcelFourVelocity;
-            // auto turbToGamma = (dp * vf + dp[0] * vf[0]) * photonPerMass;
-            // electronPopulation.momentum -= dp * photonPerMass;
-            // fluidKineticEnergy -= turbToGamma; // dot product of the spatial components
+            auto vf = p.fluidParcelFourVelocity;
+            auto turbToGamma = (dp[1] * vf[1] + dp[2] * vf[2] + dp[3] * vf[3]) * weightPerPhoton * photonPerMass;
+            auto turbToInt = 0.0;
+            auto gammaToInt = -dp[0] * weightPerPhoton * photonPerMass + turbToGamma;
+
+            // plasmaInternalEnergy += (turbToInt + gammaToInt);
+            fluidKineticEnergy   -= (turbToInt + turbToGamma);
+
+            // double Eint = electronPopulation.momentum[0];
+            // std::cout << "int -> gamma " << -gammaToInt << ", Eint = " << Eint << std::endl;
 
             ++numScatterings;
 
             p.advanceToNextScatteringTime();
             computeNextPhotonScatteringAndParcelVelocity (p);
         }
-
-        // std::cout << std::setprecision(10) << "MC: " << getSpecificPhotonEnergy() << " " << photonPopulation.momentum[0] << "\n";
     }
 
 
+
     // Recompute the electron temperature
-    // regenerateElectronVelocityDistribution (kT);
+    double kT = getElectronTemperature();
 
-    double kT_elec = getElectronTemperature();
-    double kT_phot = getMeanPhotonEnergy();
-
-    double Eint = getSpecificInternalEnergy (kT_elec);
-    double Erad = getSpecificPhotonEnergy();
-    double Ekin = fluidKineticEnergy;
-
-    std::ostringstream message;
-    message << std::scientific << std::setprecision(4);
-    message << "kT_elec=" << kT_elec << " ";
-    message << "kT_phot=" << kT_phot << " ";
-    message << "Eint=" << Eint << " ";
-    message << "Erad=" << Erad << " ";
-    message << "Ekin=" << Ekin << " ";
-    message << "total=" << Eint + Erad + Ekin << " ";
-    std::cout << message.str() << std::endl;
+    if (kT > 0.0)
+    {
+        regenerateElectronVelocityDistribution (getElectronTemperature());
+    }
+    else
+    {
+        std::cout << "WARNING: negative electron temperature " << kT << std::endl;
+    }
+    cascadeModel.advance (dt);
 }
 
 bool ComptonizationModelDriver::shouldRecordIterationInTimeSeries() const
@@ -188,9 +207,10 @@ bool ComptonizationModelDriver::shouldRecordIterationInTimeSeries() const
 double ComptonizationModelDriver::getRecordForTimeSeries (std::string name) const
 {
     if (name == "simulationTime") return getStatus().simulationTime;
-    if (name == "meanPhotonEnergy") return getMeanPhotonEnergy();
+    if (name == "photonTemperature") return getPhotonTemperature();
+    if (name == "electronTemperature") return getElectronTemperature();
     if (name == "specificPhotonEnergy") return getSpecificPhotonEnergy();
-    if (name == "specificElectronEnergy") return electronPopulation.momentum[0];
+    if (name == "specificElectronEnergy") return plasmaInternalEnergy;
     if (name == "specificTurbulentEnergy") return fluidKineticEnergy;
     assert (false);
 }
@@ -227,6 +247,41 @@ void ComptonizationModelDriver::writeOutput() const
     std::string timeSeriesFilename = makeFilename (getParameter ("outdir"), "time-series", ".dat");
     std::ofstream tseries (timeSeriesFilename);
     writeTimeSeriesData (tseries);
+
+
+
+    // Write the cascde model data
+    // ------------------------------------------------------------------------
+    std::vector<std::vector<double>> columns;
+    columns.push_back (cascadeModel.powerSpectrum.getDataX());
+    columns.push_back (cascadeModel.powerSpectrum.getDataY());
+    // columns.push_back (cascadeModel.getEddyTurnoverTime());
+    // columns.push_back (cascadeModel.getDampingTime());
+
+    std::string turbFilename = makeFilename (getParameter ("outdir"), "cascade", ".dat", S.outputsWrittenSoFar);
+    std::ofstream stream (turbFilename);
+    writeAsciiTable (columns, stream);
+}
+
+std::string ComptonizationModelDriver::getStatusMessage() const
+{
+    double kT_elec = getElectronTemperature();
+    double kT_phot = getPhotonTemperature();
+
+    double Eint = getSpecificInternalEnergy (kT_elec);
+    double Erad = getSpecificPhotonEnergy();
+    double Ekin = fluidKineticEnergy;
+
+    std::ostringstream message;
+    message << std::scientific << std::setprecision(2);
+    message << "tc=" << getComptonCoolingTime() << " ";
+    message << "kT_elec=" << kT_elec << " ";
+    message << "kT_phot=" << kT_phot << " ";
+    message << "Eint=" << Eint << " ";
+    message << "Erad=" << Erad << " ";
+    message << "Ekin=" << Ekin << " ";
+    message << "total=" << Eint + Erad + Ekin << " ";
+    return message.str();
 }
 
 Electron ComptonizationModelDriver::sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta) const
@@ -261,11 +316,13 @@ void ComptonizationModelDriver::computeNextPhotonScatteringAndParcelVelocity (Ph
     double betaEllStar = std::sqrt (fluidKineticEnergy); // use non-relativistic expression
     auto uf = FourVector::fromBetaAndUnitVector (betaEllStar, UnitVector::sampleIsotropic());
     double betaDotNhat = uf.getThreeVelocityAlong (photon.momentum.getUnitThreeVector());
-    double effectiveTau = double (getParameter ("tscat")) * (1 - betaDotNhat) * uf.getLorentzFactor();
+
+    double relativeMotionFactor = (1 - betaDotNhat) * uf.getLorentzFactor();
+    double photonTravelDistance = photonMeanFreePath / relativeMotionFactor;
+    double actualTravel = photonTravelDistance * RandomVariable::exponential(1).sample();
+
     photon.fluidParcelFourVelocity = uf;
-    photon.nextScatteringTime = (0.0
-        + photon.position.getTimeComponent()
-        + RandomVariable::exponential (effectiveTau).sample()); // exponential is cheap to create, no table
+    photon.nextScatteringTime = (photon.position.getTimeComponent() + actualTravel);
 }
 
 FourVector ComptonizationModelDriver::doComptonScattering (Photon& photon, Electron& electron) const
@@ -321,14 +378,30 @@ double ComptonizationModelDriver::getSpecificPhotonEnergy() const
 
 double ComptonizationModelDriver::getElectronTemperature() const
 {
-    // This is actually the specific internal energy over all plasma species
-    double e = electronPopulation.momentum[0];
+    double e = plasmaInternalEnergy;
     return 1. / 3 * meanParticleMass * e;
+}
+
+double ComptonizationModelDriver::getPhotonTemperature() const
+{
+    return 1. / 3 * getMeanPhotonEnergy();
 }
 
 double ComptonizationModelDriver::getSpecificInternalEnergy (double electronTemperature) const
 {
     return 3 * electronTemperature / meanParticleMass;
+}
+
+double ComptonizationModelDriver::getComptonCoolingTime() const
+{
+    double kT = getElectronTemperature();
+    double u2 = kT < 1 ? 3 * kT : 12 * kT * kT;
+    double A = 0.0; // / (1 + me / mp * Zpm); NOTE: Add these terms if there are many pairs
+    double e = getSpecificInternalEnergy (kT);
+    double w = getSpecificPhotonEnergy();
+    double r = 4. / 3 * w / photonMeanFreePath * u2 / e / (1 - A); // cooling rate P / e
+    return 1. / r;
+    //return photonMeanFreePath / w / meanParticleMass;
 }
 
 void ComptonizationModelDriver::regenerateElectronVelocityDistribution (double electronTemperature)
@@ -343,8 +416,7 @@ void ComptonizationModelDriver::regenerateElectronVelocityDistribution (double e
     }
     else
     {
-        // For relativistic temperatures the sampler can tolerate larger maximum speeds
         auto pdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
-        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms * 0.01, urms * 100));
+        electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms * 0.01, urms * 10));
     }
 }

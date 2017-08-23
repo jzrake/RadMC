@@ -88,7 +88,6 @@ double RichardsonCascade::getShortestTimeScale() const
             shortestTime = T;
         }
     }
-
     return shortestTime;
 }
 
@@ -119,6 +118,12 @@ std::vector<double> RichardsonCascade::getDampingTime() const
 double RichardsonCascade::getPhotonMeanFreePathScale() const
 {
     return photonMeanFreePath;
+}
+
+double RichardsonCascade::getReynoldsNumber (double largeEddySpeed) const
+{
+    double viscosity = photonMeanFreePath * radiativeEnergyDensity; // Note: needs an 8 / 27
+    return largeEddySpeed / viscosity;
 }
 
 double RichardsonCascade::getFiducialViscousScale() const
@@ -181,7 +186,6 @@ double RichardsonCascade::getEigenvalueAtEdge (int edgeIndex, double* binSpacing
     {
         return 0;
     }
-
     return 3. / 2 * std::sqrt (kn * kn * kn * Pn) * (kn + 5. / 3 * Pn / Pp);
 }
 
