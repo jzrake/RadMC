@@ -1,3 +1,4 @@
+#ifdef COMPILE_TESTS
 #define CATCH_CONFIG_MAIN
 #include "../lib/catch.hpp"
 
@@ -257,4 +258,5 @@ SCENARIO ("Sampling unit vectors")
         }
     }
 }
+#endif // COMPILE_TESTS
 

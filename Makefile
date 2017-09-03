@@ -1,20 +1,39 @@
-SRC := $(filter-out src/main.cpp src/test.cpp, $(wildcard src/*.cpp))
-HDR := $(wildcard src/*.hpp)
-OBJ := $(SRC:.cpp=.o)
-CFLAGS = -std=c++11 -Wall -O3
+# =====================================================================
+# RadMC build system
+# =====================================================================
+#
+# If a Makefile.in exists in this directory, then use it.
+#
+-include Makefile.in
 
-%.o : %.cpp $(HDR)
-	$(CXX) $(CFLAGS) -o $@ -c $<
 
-radmc : src/main.o $(OBJ)
-	$(CXX) $(CFLAGS) -o $@ $^
+#
+# Any macros that are omitted receive these default values:
+LUA_ARCH ?= generic
+AR       ?= ar rcu
+RANLIB   ?= ranlib
+CXX      ?= c++
+CXXFLAGS ?= -std=c++11 -Wall -O0 -g
 
-test : src/test.o $(OBJ)
-	$(CXX) $(CFLAGS) -o $@ $^
 
-show :
-	@echo $(SRC)
-	@echo $(OBJ)
+# Build macros
+# =====================================================================
+SRC      := $(wildcard src/*.cpp)
+OBJ      := $(SRC:%.cpp=%.o)
+DEP      := $(SRC:%.cpp=%.d)
+CXXFLAGS += -MMD -MP
 
-clean :
-	$(RM) $(OBJ) src/main.o src/test.o radmc test
+
+# Build rules
+# =====================================================================
+#
+radmc: $(OBJ)
+	$(CXX) $(LDFLAGS) -o $@ $^
+
+radmc.so : src/PythonWrapper.cpp $(OBJ)
+	$(CXX) $^ -o $@ -shared -std=c++11 -DRADMC_PYTHON $(shell python-config --cflags --ldflags)
+
+clean:
+	$(RM) $(OBJ) $(DEP) radmc radmc.so
+
+-include $(DEP)

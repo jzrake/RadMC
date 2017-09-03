@@ -1,4 +1,7 @@
 *.o
+*.d
 *.dat
 main
 test
+
+
