@@ -33,7 +33,6 @@ RichardsonCascade::~RichardsonCascade()
 void RichardsonCascade::advance (double dt)
 {
     std::vector<double> energyFlux;
-
     energyFlux.push_back (cascadePower);
 
     for (int n = 0; n < powerSpectrum.size(); ++n)
@@ -41,6 +40,7 @@ void RichardsonCascade::advance (double dt)
         const double kn = powerSpectrum.getBinEdge (n);
         const double Pk = powerSpectrum[n];
         const double Fk = std::pow (Pk, 3. / 2) * std::pow (kn, 5. / 2);
+        // std::cout << Fk << std::endl;
         energyFlux.push_back (Fk);
     }
 
@@ -162,6 +162,36 @@ double RichardsonCascade::getTotalEnergy() const
         E += powerSpectrum[n] * powerSpectrum.getBinWidth (n);
     }
     return E;
+}
+
+double RichardsonCascade::getEddyVelocityAtScale (double ell) const
+{
+    double Pk = powerSpectrum.lookupFunctionValue (1. / ell);
+    return std::sqrt (Pk / ell);
+}
+
+double RichardsonCascade::getEnergyFluxThroughPhotonMeanFreePathScale() const
+{
+    const double kn = 1. / photonMeanFreePath;
+    const double Pk = powerSpectrum.lookupFunctionValue (kn);
+    const double Fk = std::pow (Pk, 3. / 2) * std::pow (kn, 5. / 2);
+    return Fk;
+}
+
+double RichardsonCascade::getDissipationRatePerViscosity() const
+{
+    double definiteIntegral = 0.0;
+
+    for (int n = 0; n < powerSpectrum.size() - 1; ++n)
+    {
+        const double k0 = powerSpectrum.getBinEdge (n + 0);
+        const double k1 = powerSpectrum.getBinEdge (n + 1);
+        const double kn = 0.5 * (k1 + k0);
+        const double dk = 1.0 * (k1 - k0);
+        const double Pk = powerSpectrum.lookupFunctionValue (kn);
+        definiteIntegral += kn * kn * Pk * dk * (kn < 1. / photonMeanFreePath);
+    }
+    return definiteIntegral;
 }
 
 double RichardsonCascade::getEigenvalueAtEdge (int edgeIndex, double* binSpacing) const

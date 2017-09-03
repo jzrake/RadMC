@@ -84,6 +84,18 @@ public:
     /** Return the total energy. */
     double getTotalEnergy() const;
 
+    /** Return the eddy velocity sqrt(Pk * k) where k = 1 / ell. */
+    double getEddyVelocityAtScale (double ell) const;
+
+    /** Return the energy flux through the photon mean free path scale. */
+    double getEnergyFluxThroughPhotonMeanFreePathScale() const;
+
+    /**
+    Return the integral of k^2 Pk over all k smaller than the inverse photon
+    mean free path, with the viscous coefficient set to one.
+    */
+    double getDissipationRatePerViscosity() const;
+
     TabulatedFunction powerSpectrum;
     double cascadePower;           // should generally be 1
     double photonMeanFreePath;     // in units of the outer scale

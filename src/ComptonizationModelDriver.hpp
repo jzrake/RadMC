@@ -106,6 +106,7 @@ private:
     Electron sampleElectronForScatteringInParcel (const Photon& photon, RandomVariable& electronGammaBeta) const;
     FourVector doComptonScattering (Photon& photon, Electron& electron) const;
     void computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const;
+    double getFluidVelocityAtPhotonMeanFreePathScale() const;
     double getTotalPhotonEnergyMC() const;
     double getMeanPhotonEnergy() const;    
     double getSpecificPhotonEnergy() const;
@@ -124,8 +125,12 @@ private:
     double photonPerMass; // := photon / proton * me / mp / (1 + Z_pm * me / mp)
     double meanParticleMass; // := mbar / me, where mbar := (np mp + ne me) / (np + ne) ~ mp
     double photonMeanFreePath; // with respect to eddy scale
-
+    double zPlusMinus; // num (+ or -) over num protons
+    double photonPerProton;
+    double protonToElectronMassRatio;
+    
     RichardsonCascade cascadeModel;
+    bool coldElectrons;
 };
 
 #endif

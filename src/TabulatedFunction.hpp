@@ -114,12 +114,12 @@ public:
     /**
     Look up the function value y(x), using linear interpolation between bins.
     */
-    double lookupFunctionValue (double x);
+    double lookupFunctionValue (double x) const;
 
     /**
     Look up the argument value x(y), using linear interpolation between bins.
     */
-    double lookupArgumentValue (double y);
+    double lookupArgumentValue (double y) const;
 
     /**
     Return a lambda function that evaluates lookupFunctionValue (x). The

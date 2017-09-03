@@ -15,7 +15,7 @@ spacingMode (spacingMode)
 
 }
 
-TabulatedFunction::TabulatedFunction (double x0, double x1, int numberOfBins, BinSpacingMode spacingMode)
+TabulatedFunction::TabulatedFunction (double x0, double x1, int numberOfBins, BinSpacingMode spacingMode) : spacingMode (spacingMode)
 {
     for (int n = 0; n < numberOfBins + 1; ++n)
     {
@@ -197,17 +197,6 @@ TabulatedFunction TabulatedFunction::makeHistogram (
         if (binIndex < 0) binIndex = 0;
         if (binIndex >= binEdges.size() - 1) binIndex = binEdges.size() - 2;
 
-        // if (binIndex < 0 || binIndex >= binEdges.size() - 1)
-        // {
-        //     throw std::runtime_error ("[TabulatedFunction::makeHistogram] got out-of-range x value "
-        //         + std::to_string (samples[n])
-        //         + " not in ["
-        //         + std::to_string (binEdges.front())
-        //         + ", "
-        //         + std::to_string (binEdges.back())
-        //         + "]");
-        // }
-
         if (density)
         {
             binValues[binIndex] += sampleMass / (binEdges[binIndex + 1] - binEdges[binIndex]);
@@ -284,7 +273,7 @@ double TabulatedFunction::getBinWidth (int index) const
     return xdata[index + 1] - xdata[index];
 }
 
-double TabulatedFunction::lookupFunctionValue (double x)
+double TabulatedFunction::lookupFunctionValue (double x) const
 {
     auto findBinIndex = [=] () -> int
     {
@@ -311,7 +300,7 @@ double TabulatedFunction::lookupFunctionValue (double x)
             {
                 double L0 = std::log (xdata.front());
                 double L1 = std::log (xdata.back());
-                return 1 + int ((std::log (x) - L0) / (L1 - L0) * (xdata.size() - 1));
+                return 1 + int ((std::log(x) - L0) / (L1 - L0) * (xdata.size() - 1));
             }
         }
     };
@@ -329,7 +318,7 @@ double TabulatedFunction::lookupFunctionValue (double x)
     return ya + (x - xa) * (yb - ya) / (xb - xa);
 }
 
-double TabulatedFunction::lookupArgumentValue (double y)
+double TabulatedFunction::lookupArgumentValue (double y) const
 {
     auto findBinIndex = [=] () -> int
     {

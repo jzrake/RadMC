@@ -153,6 +153,7 @@ FourVector FourVector::nullWithUnitVector (UnitVector nhat)
 
 FourVector FourVector::fromGammaBetaAndUnitVector (double gammaBeta, UnitVector nhat)
 {
+    if (gammaBeta == 0) return FourVector (1, 0, 0, 0);
     double g = std::sqrt (1 + gammaBeta * gammaBeta);
     double nx, ny, nz;
     nhat.getCartesianComponents (nx, ny, nz);
@@ -162,6 +163,7 @@ FourVector FourVector::fromGammaBetaAndUnitVector (double gammaBeta, UnitVector 
 
 FourVector FourVector::fromBetaAndUnitVector (double beta, UnitVector nhat)
 {
+    if (beta == 0) return FourVector (1, 0, 0, 0);
     return fromGammaBetaAndUnitVector (beta / std::sqrt (1 - beta * beta), nhat);
 }
 
