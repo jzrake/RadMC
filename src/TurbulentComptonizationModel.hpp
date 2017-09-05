@@ -13,13 +13,8 @@ public:
 
 
 
-
     struct Config
     {
-        std::string outdir = ".";
-        double tmax = 1.0;
-        double cpi = 1.0; // Checkpoint interval
-        double tsi = 1.0; // Time series interval
         double theta = 0.01; // electron temperature in units of electron rest mass
         double ell_star = 1e-3; // photon mean free path
         double nphot = 4; // log10 of photon number
@@ -27,6 +22,16 @@ public:
         double nelec = 5; // log10 of electron number (currently for diagnostics only)
         double ephot = 1e-3;
         double beta_turb = 0.5;
+    };
+
+
+
+    struct IterationReport
+    {
+        double timeAfterIteration;
+        double meanScatteringsPerPhoton;
+        double meanScatteringAngleWithBulk;
+        double meanScatteringAngleInParcel;
     };
 
 
@@ -111,33 +116,46 @@ public:
 
     TurbulentComptonizationModel (Config config);
 
+    // Driver functions
+    // ========================================================================
     double getTimestep() const;
-    void advance (double dt);
+    IterationReport advance (double dt);
 
-
-    std::vector<double> getCascadeWaveNumbers() const;
-    std::vector<double> getCascadePowerSpectrum() const;
+    // Functions that query array data
+    // ========================================================================
     std::vector<Photon> getPhotons() const;
-    double getFluidVelocityAtPhotonMeanFreePathScale() const;
-    double getTotalPhotonEnergyMC() const;
-    double getMeanPhotonEnergy() const;    
-    double getSpecificPhotonEnergy() const;
+    std::vector<double> getCascadeWaveNumberBins() const;
+    std::vector<double> getCascadePowerSpectrum() const;
+    std::vector<double> getPhotonEnergyBins() const;
+    std::vector<double> getPhotonSpectrum() const;
+
+    // Functions that query diagnostic data
+    // ========================================================================
     double getElectronTemperature() const;
     double getPhotonTemperature() const;
-    double getSpecificInternalEnergy (double electronTemperature) const;
     double getComptonCoolingTime() const;
+    double getSpecificInternalEnergy() const;
+    double getSpecificKineticEnergy() const;
+    double getSpecificPhotonEnergy() const;
 
 private:
-    Electron sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta) const;
-    Electron sampleElectronForScatteringInParcel (const Photon& photon, RandomVariable& electronGammaBeta) const;
+    double getFluidVelocityAtPhotonMeanFreePathScale() const;
+    double getTotalPhotonEnergyMC() const;
+    double getMeanPhotonEnergy() const;
+    double getSpecificInternalEnergyForTemp (double electronTemperature) const;
+    Electron sampleElectronForScattering (const Photon& photon) const;
+    Electron sampleElectronForScatteringInParcel (const Photon& photon) const;
     FourVector doComptonScattering (Photon& photon, Electron& electron) const;
     void computeNextPhotonScatteringAndParcelVelocity (Photon& photon) const;
     void regenerateElectronVelocityDistribution (double electronTemperature);
+    TabulatedFunction computePhotonSpectrum() const;
 
     Config config;
-
     RandomVariable electronGammaBeta;
     RandomVariable photonEnergy;
+    RichardsonCascade cascadeModel;
+    bool coldElectrons;
+    double simulationTime;
     std::vector<Photon> photons;
 
     double plasmaInternalEnergy;
@@ -148,9 +166,5 @@ private:
     double zPlusMinus; // num (+ or -) over num protons
     double photonPerProton;
     double protonToElectronMassRatio;
-    
-    RichardsonCascade cascadeModel;
-    bool coldElectrons;
-    double simulationTime;
 };
 

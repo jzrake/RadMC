@@ -13,7 +13,7 @@ LUA_ARCH ?= generic
 AR       ?= ar rcu
 RANLIB   ?= ranlib
 CXX      ?= c++
-CXXFLAGS ?= -std=c++11 -Wall -O0 -g
+CXXFLAGS ?= -std=c++11 -Wall -O3
 
 
 # Build macros

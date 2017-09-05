@@ -13,7 +13,7 @@ class Task(object):
         return Recurrence(0.0, 0.0, 1)
 
     def get_name(self):
-        return "Task"
+        return self.__class__.__name__
 
 
 
@@ -32,7 +32,7 @@ class Recurrence(object):
         self.skip_next = False
 
     def is_due(self, status):
-        if self.phys_time_interval > 0.0 and self.next_phys_time <= status.simulation_time + 1e-12: return 'P'
+        if self.phys_time_interval > 0.0 and self.next_phys_time <= status.simulation_time: return 'P'
         if self.wall_time_interval > 0.0 and self.next_wall_time <= status.wall_minutes: return 'W'
         if self.iteration_interval > 0   and self.next_iteration <= status.simulation_iter: return 'I'
         return None
@@ -88,7 +88,7 @@ class TaskScheduler(object):
 
 
 class Status(object):
-    """Status class holding simulation and wall time, and iteration."""
+    """Status class holding iteration, simulation time, and wall time."""
     import time
     def __init__(self):
         self.simulation_iter = 0
@@ -105,11 +105,17 @@ class Status(object):
 
 
 if __name__ == "__main__":
+    class MyTask(Task):
+        def run(self, status, repetition):
+            print 'running task', repetition, status.simulation_iter
+        def get_recurrence(self):
+            return Recurrence(0.0, 0.0, 2)
+
+
     status = Status()
     scheduler = TaskScheduler()
-    scheduler.schedule(Task())
-    scheduler.dispatch(status)
+    scheduler.schedule(MyTask())
 
     for i in range(10):
-        status.step(0.01)
-
+        scheduler.dispatch(status)
+        status.step(0.1)

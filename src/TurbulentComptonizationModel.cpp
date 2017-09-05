@@ -42,6 +42,7 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
 {
     simulationTime = 0.0;
 
+
     // Configure the initial electron distribution
     // ------------------------------------------------------------------------
     double kT = config.theta;
@@ -58,7 +59,7 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
     protonToElectronMassRatio = 1836;
     meanParticleMass = (protonToElectronMassRatio + zPlusMinus) / (1 + zPlusMinus);
     regenerateElectronVelocityDistribution (kT);
-    plasmaInternalEnergy = getSpecificInternalEnergy (kT);
+    plasmaInternalEnergy = getSpecificInternalEnergyForTemp (kT);
 
 
     // Configure the fluid parameters
@@ -103,6 +104,11 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
     std::cout << "Photons per proton " << photonPerProton << std::endl;
 }
 
+
+
+
+// Driver functions
+// ============================================================================
 double TurbulentComptonizationModel::getTimestep() const
 {
     double cascadeDt = cascadeModel.getShortestTimeScale() * 0.1;
@@ -111,7 +117,7 @@ double TurbulentComptonizationModel::getTimestep() const
     return std::min ({cascadeDt, scatterDt, coolingDt});
 }
 
-void TurbulentComptonizationModel::advance (double dt)
+TurbulentComptonizationModel::IterationReport TurbulentComptonizationModel::advance (double dt)
 {
     int numScatterings = 0;
     double weightPerPhoton = 1.0 / photons.size();
@@ -121,7 +127,7 @@ void TurbulentComptonizationModel::advance (double dt)
     {
         while (p.nextScatteringTime <= simulationTime)
         {
-            Electron e = sampleElectronForScatteringInParcel (p, electronGammaBeta);
+            Electron e = sampleElectronForScatteringInParcel(p);
             FourVector dp = doComptonScattering (p, e); // dp is the change in photon momentum
 
 
@@ -143,7 +149,6 @@ void TurbulentComptonizationModel::advance (double dt)
         }
     }
 
-
     // Recompute the electron temperature
     double kT = getElectronTemperature();
 
@@ -159,9 +164,28 @@ void TurbulentComptonizationModel::advance (double dt)
     cascadeModel.radiativeEnergyDensity = getSpecificPhotonEnergy();
     cascadeModel.advance (dt);
     simulationTime += dt;
+
+
+    IterationReport report;
+    report.timeAfterIteration = simulationTime;
+    report.meanScatteringsPerPhoton = numScatterings * weightPerPhoton;
+    report.meanScatteringAngleWithBulk = 0.0; // TODO
+    report.meanScatteringAngleInParcel = 0.0;
+
+    return report;
 }
 
-std::vector<double> TurbulentComptonizationModel::getCascadeWaveNumbers() const
+
+
+
+// Functions that query array data
+// ============================================================================
+std::vector<Photon> TurbulentComptonizationModel::getPhotons() const
+{
+    return photons;
+}
+
+std::vector<double> TurbulentComptonizationModel::getCascadeWaveNumberBins() const
 {
     return cascadeModel.powerSpectrum.getDataX();
 }
@@ -171,32 +195,31 @@ std::vector<double> TurbulentComptonizationModel::getCascadePowerSpectrum() cons
     return cascadeModel.powerSpectrum.getDataY();
 }
 
-std::vector<Photon> TurbulentComptonizationModel::getPhotons() const
+std::vector<double> TurbulentComptonizationModel::getPhotonEnergyBins() const
 {
-    return photons;
+    auto hist = computePhotonSpectrum();
+    return hist.getDataX();
 }
 
-double TurbulentComptonizationModel::getFluidVelocityAtPhotonMeanFreePathScale() const
+std::vector<double> TurbulentComptonizationModel::getPhotonSpectrum() const
 {
-    // double betaEllStar = std::sqrt (fluidKineticEnergy); // use non-relativistic expression
-    return cascadeModel.getEddyVelocityAtScale (photonMeanFreePath);
+    auto hist = computePhotonSpectrum();
+    return hist.getDataY();
 }
 
-double TurbulentComptonizationModel::getTotalPhotonEnergyMC() const
-{
-    double totalEnergy = 0.0;
 
-    for (const auto& p : photons)
-    {
-        totalEnergy += p.momentum[0];
-    }
-    return totalEnergy;
+
+
+// Functions that query diagnostic data
+// ============================================================================
+double TurbulentComptonizationModel::getSpecificKineticEnergy() const
+{
+    return cascadeModel.getTotalEnergy();
 }
 
-double TurbulentComptonizationModel::getMeanPhotonEnergy() const
+double TurbulentComptonizationModel::getSpecificInternalEnergy() const
 {
-    double meanEnergyPerPhoton = getTotalPhotonEnergyMC() / photons.size();
-    return meanEnergyPerPhoton;
+    return plasmaInternalEnergy;
 }
 
 double TurbulentComptonizationModel::getSpecificPhotonEnergy() const
@@ -217,11 +240,6 @@ double TurbulentComptonizationModel::getPhotonTemperature() const
     return 1. / 3 * getMeanPhotonEnergy();
 }
 
-double TurbulentComptonizationModel::getSpecificInternalEnergy (double electronTemperature) const
-{
-    return 3 * electronTemperature / meanParticleMass;
-}
-
 double TurbulentComptonizationModel::getComptonCoolingTime() const
 {
     if (coldElectrons)
@@ -237,7 +255,39 @@ double TurbulentComptonizationModel::getComptonCoolingTime() const
     return tcomp;
 }
 
-Electron TurbulentComptonizationModel::sampleElectronForScattering (const Photon& photon, RandomVariable& electronGammaBeta) const
+
+
+
+// Private member functions
+// ============================================================================
+double TurbulentComptonizationModel::getFluidVelocityAtPhotonMeanFreePathScale() const
+{
+    return cascadeModel.getEddyVelocityAtScale (photonMeanFreePath);
+}
+
+double TurbulentComptonizationModel::getTotalPhotonEnergyMC() const
+{
+    double totalEnergy = 0.0;
+
+    for (const auto& p : photons)
+    {
+        totalEnergy += p.momentum[0];
+    }
+    return totalEnergy;
+}
+
+double TurbulentComptonizationModel::getMeanPhotonEnergy() const
+{
+    double meanEnergyPerPhoton = getTotalPhotonEnergyMC() / photons.size();
+    return meanEnergyPerPhoton;
+}
+
+double TurbulentComptonizationModel::getSpecificInternalEnergyForTemp (double electronTemperature) const
+{
+    return 3 * electronTemperature / meanParticleMass;
+}
+
+Electron TurbulentComptonizationModel::sampleElectronForScattering (const Photon& photon) const
 {
     // Sample the electron speed (converted from gammaBeta).
     double electronU = electronGammaBeta.sample();
@@ -253,13 +303,13 @@ Electron TurbulentComptonizationModel::sampleElectronForScattering (const Photon
     return FourVector::fromBetaAndUnitVector (electronV, nhat);
 }
 
-Electron TurbulentComptonizationModel::sampleElectronForScatteringInParcel (const Photon& photon, RandomVariable& electronGammaBeta) const
+Electron TurbulentComptonizationModel::sampleElectronForScatteringInParcel (const Photon& photon) const
 {
     LorentzBoost L (photon.fluidParcelFourVelocity);
 
     // Get the photon in the fluid rest frame
     Photon q = photon.transformedBy(L);
-    Electron f = sampleElectronForScattering (q, electronGammaBeta);
+    Electron f = sampleElectronForScattering(q);
     Electron e = f.transformedBy (L.inverted());
     return e;
 }
@@ -326,4 +376,21 @@ void TurbulentComptonizationModel::regenerateElectronVelocityDistribution (doubl
         auto pdf = Distributions::makeMaxwellJuttner (kT, Distributions::Pdf);
         electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms * 0.01, urms * 10));
     }
+}
+
+TabulatedFunction TurbulentComptonizationModel::computePhotonSpectrum() const
+{
+    std::vector<double> energies;
+
+    for (const auto& p : photons)
+    {
+        energies.push_back (p.momentum.getTimeComponent());
+    }
+
+    TabulatedFunction hist = TabulatedFunction::makeHistogram (
+        energies,
+        256, TabulatedFunction::useEqualBinWidthsLogarithmic,
+        true, true, false);
+
+    return hist;
 }
