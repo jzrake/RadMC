@@ -46,6 +46,7 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
     // Configure the initial electron distribution
     // ------------------------------------------------------------------------
     double kT = config.theta;
+    zPlusMinus = 1.0;
 
     if (kT == 0)
     {
@@ -60,13 +61,6 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
     meanParticleMass = (protonToElectronMassRatio + zPlusMinus) / (1 + zPlusMinus);
     regenerateElectronVelocityDistribution (kT);
     plasmaInternalEnergy = getSpecificInternalEnergyForTemp (kT);
-
-
-    // Configure the fluid parameters
-    // ------------------------------------------------------------------------
-    double betaTurb = double (config.beta_turb);
-    fluidKineticEnergy = std::pow (betaTurb, 2);
-    zPlusMinus = 1.0;
 
 
     // Configure the initial photon distribution
@@ -86,10 +80,10 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
         photons.push_back (p);
     }
 
-    if (photonMeanFreePath >= 1.0)
-    {
-        throw std::runtime_error ("ell_star (photon mean free path) must be < 1");
-    }
+
+    // Configure the fluid parameters
+    // ------------------------------------------------------------------------
+    double betaTurb = double (config.beta_turb);
     cascadeModel = RichardsonCascade (10 / photonMeanFreePath, 128);
     cascadeModel.photonMeanFreePath = photonMeanFreePath;
     cascadeModel.radiativeEnergyDensity = getSpecificPhotonEnergy();
@@ -119,9 +113,12 @@ double TurbulentComptonizationModel::getTimestep() const
 
 TurbulentComptonizationModel::IterationReport TurbulentComptonizationModel::advance (double dt)
 {
+    const double weightPerPhoton = 1.0 / photons.size();
+    const double r = weightPerPhoton * photonPerMass; // actual weight per MC photon
+
     int numScatterings = 0;
-    double weightPerPhoton = 1.0 / photons.size();
-    double epsEllStar = cascadeModel.getEnergyFluxThroughPhotonMeanFreePathScale();
+    double turbToGamma = 0.0;
+    double gammaToAll = 0.0;
 
     for (auto& p : photons)
     {
@@ -129,18 +126,10 @@ TurbulentComptonizationModel::IterationReport TurbulentComptonizationModel::adva
         {
             Electron e = sampleElectronForScatteringInParcel(p);
             FourVector dp = doComptonScattering (p, e); // dp is the change in photon momentum
-
-
-            // When dp is negative, the electron population gained energy in
-            // the collision. The work done against fluid is vfluid.dp.
             auto vf = p.fluidParcelFourVelocity;
-            auto turbToGamma = (dp[1] * vf[1] + dp[2] * vf[2] + dp[3] * vf[3]) * weightPerPhoton * photonPerMass;
-            auto turbToInt = epsEllStar * dt * weightPerPhoton; // FIX THIS!!
-            auto gammaToInt = -dp[0] * weightPerPhoton * photonPerMass + turbToGamma;
 
-
-            plasmaInternalEnergy += (turbToInt + gammaToInt);
-            fluidKineticEnergy   -= (turbToInt + turbToGamma);
+            gammaToAll  -= (dp[0]) * r;
+            turbToGamma += (dp[1] * vf[1] + dp[2] * vf[2] + dp[3] * vf[3]) * r;
 
             ++numScatterings;
 
@@ -149,28 +138,25 @@ TurbulentComptonizationModel::IterationReport TurbulentComptonizationModel::adva
         }
     }
 
-    // Recompute the electron temperature
-    double kT = getElectronTemperature();
+    const double epsEllStar = cascadeModel.getEnergyFluxThroughScale (photonMeanFreePath * 0.2);
+    const double turbToInt  = epsEllStar * dt;
+    const double gammaToInt = gammaToAll + turbToGamma;
+    const double allToInt   = gammaToInt + turbToInt;
 
-    if (kT > 0.0)
-    {
-        regenerateElectronVelocityDistribution (getElectronTemperature());
-    }
-    else if (! coldElectrons)
-    {
-        std::cout << "WARNING: negative electron temperature " << kT << std::endl;
-    }
-
+    plasmaInternalEnergy += allToInt;
     cascadeModel.radiativeEnergyDensity = getSpecificPhotonEnergy();
+    regenerateElectronVelocityDistribution (getElectronTemperature());
+
     cascadeModel.advance (dt);
     simulationTime += dt;
-
 
     IterationReport report;
     report.timeAfterIteration = simulationTime;
     report.meanScatteringsPerPhoton = numScatterings * weightPerPhoton;
     report.meanScatteringAngleWithBulk = 0.0; // TODO
     report.meanScatteringAngleInParcel = 0.0;
+    report.viscousPowerBasedOnPhotons = turbToGamma / dt;
+    report.viscousPowerBasedOnCascade = cascadeModel.getDissipationRatePerViscosity() * cascadeModel.getPhotonViscosity();
 
     return report;
 }
@@ -238,6 +224,12 @@ double TurbulentComptonizationModel::getElectronTemperature() const
 double TurbulentComptonizationModel::getPhotonTemperature() const
 {
     return 1. / 3 * getMeanPhotonEnergy();
+}
+
+double TurbulentComptonizationModel::getEffectiveWaveTemperature() const
+{
+    double vEllStar = getFluidVelocityAtPhotonMeanFreePathScale();
+    return 1. / 3. * vEllStar * vEllStar;
 }
 
 double TurbulentComptonizationModel::getComptonCoolingTime() const
@@ -357,6 +349,17 @@ FourVector TurbulentComptonizationModel::doComptonScattering (Photon& photon, El
 
 void TurbulentComptonizationModel::regenerateElectronVelocityDistribution (double electronTemperature)
 {
+    if (electronTemperature < 0.0 && ! coldElectrons)
+    {
+        std::cout
+        << "WARNING: negative electron temperature "
+        << electronTemperature
+        << ", using floor"
+        << std::endl;
+
+        electronTemperature = 1e-8;
+    }
+
     if (coldElectrons)
     {
         electronGammaBeta = RandomVariable::diracDelta(0.0);

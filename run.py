@@ -41,12 +41,14 @@ class CollectTimeSeriesData(TaskScheduler.Task):
 	def sample(self, time=0.0):
 		return dict(
 			time = time,
-			phot_kT = self.model.get_photon_temperature(),
-			elec_kT = self.model.get_electron_temperature(),
-			compton_cooling_time = self.model.get_compton_cooling_time(),
-			specific_kinetic_energy = self.model.get_specific_kinetic_energy(),
-			specific_internal_energy = self.model.get_specific_internal_energy(),
-			specific_photon_energy = self.model.get_specific_photon_energy())
+			phot_kT                    = self.model.get_photon_temperature(),
+			elec_kT                    = self.model.get_electron_temperature(),
+			wave_kT                    = self.model.get_effective_wave_temperature(),
+			compton_cooling_time       = self.model.get_compton_cooling_time(),
+			specific_kinetic_energy    = self.model.get_specific_kinetic_energy(),
+			specific_internal_energy   = self.model.get_specific_internal_energy(),
+			specific_photon_energy     = self.model.get_specific_photon_energy())
+
 
 
 
@@ -57,8 +59,8 @@ class CollectSpectralData(TaskScheduler.Task):
 
 	def run(self, status, repetition):
 		itr = self.h5_spectra.create_group('{0:06d}'.format(repetition))
-		itr['photon_E'] = self.model.get_photon_energy_bins()
-		itr['photon_N'] = self.model.get_photon_spectrum()
+		itr['photon_E']  = self.model.get_photon_energy_bins()
+		itr['photon_N']  = self.model.get_photon_spectrum()
 		itr['cascade_k'] = self.model.get_cascade_wavenumber_bins()
 		itr['cascade_P'] = self.model.get_cascade_power_spectrum()
 		itr['time'] = status.simulation_time
@@ -72,10 +74,10 @@ class CollectSpectralData(TaskScheduler.Task):
 cfg = radmc.TurbulentComptonizationModel.Config()
 cfg.nphot          = 4
 cfg.nphot_per_mass = 0.1
-cfg.ephot          = 1e-5
-cfg.ell_star       = 0.01
+cfg.ephot          = 1e-6
+cfg.ell_star       = 0.1
 cfg.beta_turb      = 0.1
-cfg.theta          = 1e-5
+cfg.theta          = 1e-6
 
 
 scheduler = TaskScheduler.TaskScheduler()
@@ -84,14 +86,27 @@ model = radmc.TurbulentComptonizationModel(cfg)
 model.report = radmc.TurbulentComptonizationModel.IterationReport()
 model.h5_file = h5py.File('radmc.h5', 'w')
 
+h5_cfg = model.h5_file.create_group('config')
+for k in dir(cfg):
+	if not k.startswith('__'):
+		h5_cfg[k] = getattr(cfg, k)
+
+
 scheduler.schedule(PrintIterationMessage(model))
 scheduler.schedule(CollectTimeSeriesData(model))
 scheduler.schedule(CollectSpectralData(model))
 
+
+#viscous_power_based_on_photons = 0.0
+#viscous_power_based_on_cascade = 0.0
 
 while status.simulation_time < 40.0:
 	scheduler.dispatch(status)
 	dt = model.get_timestep()
 	model.report = model.advance(dt)
 	status.step(dt)
+
+	#viscous_power_based_on_photons += model.report.viscous_power_based_on_photons
+	#viscous_power_based_on_cascade += model.report.viscous_power_based_on_cascade
+	#print(model.report.viscous_power_based_on_photons, viscous_power_based_on_photons, viscous_power_based_on_cascade)
 

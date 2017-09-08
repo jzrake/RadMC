@@ -266,7 +266,7 @@ void ComptonizationModelDriver::advance (double dt)
             // the collision. The work done against fluid is vfluid.dp.
             auto vf = p.fluidParcelFourVelocity;
             auto turbToGamma = (dp[1] * vf[1] + dp[2] * vf[2] + dp[3] * vf[3]) * weightPerPhoton * photonPerMass;
-            auto turbToInt = cascadeModel.getEnergyFluxThroughPhotonMeanFreePathScale() * meanScatteringTime * weightPerPhoton;
+            auto turbToInt = cascadeModel.getEnergyFluxThroughScale (photonMeanFreePath) * meanScatteringTime * weightPerPhoton;
             auto gammaToInt = -dp[0] * weightPerPhoton * photonPerMass + turbToGamma;
 
             // std::cout << dp[1] << std::endl;
@@ -394,7 +394,7 @@ std::string ComptonizationModelDriver::getStatusMessage() const
     message << "Er=" << Erad << " ";
     message << "Ek=" << Ekin << " ";
     message << "vs=" << cascadeModel.getEddyVelocityAtScale (photonMeanFreePath) << " ";
-    message << "ep=" << cascadeModel.getEnergyFluxThroughPhotonMeanFreePathScale() << " ";
+    message << "ep=" << cascadeModel.getEnergyFluxThroughScale (photonMeanFreePath) << " ";
     message << "total=" << Eint + Erad + Ekin << " ";
     return message.str();
 }

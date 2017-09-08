@@ -58,6 +58,9 @@ public:
     */
     double getReynoldsNumber (double largeEddySpeed) const;
 
+    /** */
+    double getPhotonViscosity() const;
+
     /**
     Return the scale at which the eddy and viscous damping time scales would
     be equal in the absence of optically thin Compton drag.
@@ -87,8 +90,11 @@ public:
     /** Return the eddy velocity sqrt(Pk * k) where k = 1 / ell. */
     double getEddyVelocityAtScale (double ell) const;
 
-    /** Return the energy flux through the photon mean free path scale. */
-    double getEnergyFluxThroughPhotonMeanFreePathScale() const;
+    /**
+    Return the energy flux through the given length scale. Note: if the scale
+    is not in range, this function will throw an exception.
+    */
+    double getEnergyFluxThroughScale (double ell) const;
 
     /**
     Return the integral of k^2 Pk over all k smaller than the inverse photon

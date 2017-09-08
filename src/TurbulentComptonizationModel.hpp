@@ -32,6 +32,8 @@ public:
         double meanScatteringsPerPhoton;
         double meanScatteringAngleWithBulk;
         double meanScatteringAngleInParcel;
+        double viscousPowerBasedOnPhotons;
+        double viscousPowerBasedOnCascade;
     };
 
 
@@ -133,6 +135,7 @@ public:
     // ========================================================================
     double getElectronTemperature() const;
     double getPhotonTemperature() const;
+    double getEffectiveWaveTemperature() const;
     double getComptonCoolingTime() const;
     double getSpecificInternalEnergy() const;
     double getSpecificKineticEnergy() const;
@@ -159,7 +162,6 @@ private:
     std::vector<Photon> photons;
 
     double plasmaInternalEnergy;
-    double fluidKineticEnergy;
     double photonPerMass; // := photon / proton * me / mp / (1 + Z_pm * me / mp)
     double meanParticleMass; // := mbar / me, where mbar := (np mp + ne me) / (np + ne) ~ mp
     double photonMeanFreePath; // with respect to eddy scale

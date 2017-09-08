@@ -41,6 +41,7 @@ PYBIND11_MODULE (radmc, m)
     .def ("get_photon_spectrum", &TCM::getPhotonSpectrum)
     .def ("get_electron_temperature", &TCM::getElectronTemperature)
     .def ("get_photon_temperature", &TCM::getPhotonTemperature)
+    .def ("get_effective_wave_temperature", &TCM::getEffectiveWaveTemperature)
     .def ("get_compton_cooling_time", &TCM::getComptonCoolingTime)
     .def ("get_specific_internal_energy", &TCM::getSpecificInternalEnergy)
     .def ("get_specific_kinetic_energy", &TCM::getSpecificKineticEnergy)
@@ -67,7 +68,9 @@ PYBIND11_MODULE (radmc, m)
     .def_readonly ("time_after_iteration", &TCM::IterationReport::timeAfterIteration)
     .def_readonly ("mean_scatterings_per_photon", &TCM::IterationReport::meanScatteringsPerPhoton)
     .def_readonly ("mean_scattering_angle_with_bulk", &TCM::IterationReport::meanScatteringAngleWithBulk)
-    .def_readonly ("mean_scattering_angle_in_parcel", &TCM::IterationReport::meanScatteringAngleInParcel);
+    .def_readonly ("mean_scattering_angle_in_parcel", &TCM::IterationReport::meanScatteringAngleInParcel)
+    .def_readonly ("viscous_power_based_on_photons", &TCM::IterationReport::viscousPowerBasedOnPhotons)
+    .def_readonly ("viscous_power_based_on_cascade", &TCM::IterationReport::viscousPowerBasedOnCascade);
 }
 
 #endif // RADMC_PYTHON

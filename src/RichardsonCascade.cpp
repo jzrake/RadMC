@@ -120,6 +120,12 @@ double RichardsonCascade::getPhotonMeanFreePathScale() const
     return photonMeanFreePath;
 }
 
+double RichardsonCascade::getPhotonViscosity() const
+{
+    double viscosity = photonMeanFreePath * radiativeEnergyDensity; // Note: needs an 8 / 27
+    return viscosity;
+}
+
 double RichardsonCascade::getReynoldsNumber (double largeEddySpeed) const
 {
     double viscosity = photonMeanFreePath * radiativeEnergyDensity; // Note: needs an 8 / 27
@@ -170,9 +176,9 @@ double RichardsonCascade::getEddyVelocityAtScale (double ell) const
     return std::sqrt (Pk / ell);
 }
 
-double RichardsonCascade::getEnergyFluxThroughPhotonMeanFreePathScale() const
+double RichardsonCascade::getEnergyFluxThroughScale (double ell) const
 {
-    const double kn = 1. / photonMeanFreePath;
+    const double kn = 1. / ell;
     const double Pk = powerSpectrum.lookupFunctionValue (kn);
     const double Fk = std::pow (Pk, 3. / 2) * std::pow (kn, 5. / 2);
     return Fk;
