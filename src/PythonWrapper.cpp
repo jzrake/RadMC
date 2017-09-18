@@ -45,7 +45,8 @@ PYBIND11_MODULE (radmc, m)
     .def ("get_compton_cooling_time", &TCM::getComptonCoolingTime)
     .def ("get_specific_internal_energy", &TCM::getSpecificInternalEnergy)
     .def ("get_specific_kinetic_energy", &TCM::getSpecificKineticEnergy)
-    .def ("get_specific_photon_energy", &TCM::getSpecificPhotonEnergy);
+    .def ("get_specific_photon_energy", &TCM::getSpecificPhotonEnergy)
+    .def ("get_eddy_velocity_at_scale", &TCM::getEddyVelocityAtScale);
 
     py::class_<TCM::Photon> (tcm, "Photon")
     .def (py::init<>())

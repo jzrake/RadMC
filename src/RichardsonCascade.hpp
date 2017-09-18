@@ -87,7 +87,11 @@ public:
     /** Return the total energy. */
     double getTotalEnergy() const;
 
-    /** Return the eddy velocity sqrt(Pk * k) where k = 1 / ell. */
+    /**
+    Return the eddy velocity at the given length scale ell. Eddy velocity is
+    defined as the two-point correlation function at scale ell, which is the
+    square root of the integral over 2 P(k) (1 - cos(k l)) dk.
+    */
     double getEddyVelocityAtScale (double ell) const;
 
     /**

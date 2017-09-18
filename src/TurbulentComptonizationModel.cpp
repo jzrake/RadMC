@@ -84,7 +84,7 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
     // Configure the fluid parameters
     // ------------------------------------------------------------------------
     double betaTurb = double (config.beta_turb);
-    cascadeModel = RichardsonCascade (10 / photonMeanFreePath, 128);
+    cascadeModel = RichardsonCascade (100 / photonMeanFreePath, 128);
     cascadeModel.photonMeanFreePath = photonMeanFreePath;
     cascadeModel.radiativeEnergyDensity = getSpecificPhotonEnergy();
     cascadeModel.cascadePower = std::pow (betaTurb, 3);
@@ -105,7 +105,7 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
 // ============================================================================
 double TurbulentComptonizationModel::getTimestep() const
 {
-    double cascadeDt = cascadeModel.getShortestTimeScale() * 0.1;
+    double cascadeDt = cascadeModel.getShortestTimeScale() * 0.05;
     double scatterDt = photonMeanFreePath * 0.1;
     double coolingDt = getComptonCoolingTime() * 0.1;
     return std::min ({cascadeDt, scatterDt, coolingDt});
@@ -245,6 +245,11 @@ double TurbulentComptonizationModel::getComptonCoolingTime() const
     double tscat = photonMeanFreePath;
     double tcomp = tscat * 3. / 4 / photonPerProton * zPlusMinus * e / eps / u2;
     return tcomp;
+}
+
+double TurbulentComptonizationModel::getEddyVelocityAtScale (double ell) const
+{
+    return cascadeModel.getEddyVelocityAtScale (ell);
 }
 
 

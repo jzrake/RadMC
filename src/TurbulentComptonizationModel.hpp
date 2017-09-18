@@ -140,7 +140,8 @@ public:
     double getSpecificInternalEnergy() const;
     double getSpecificKineticEnergy() const;
     double getSpecificPhotonEnergy() const;
-
+    double getEddyVelocityAtScale (double ell) const;
+    
 private:
     double getFluidVelocityAtPhotonMeanFreePathScale() const;
     double getTotalPhotonEnergyMC() const;
@@ -169,4 +170,3 @@ private:
     double photonPerProton;
     double protonToElectronMassRatio;
 };
-

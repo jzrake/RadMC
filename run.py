@@ -23,6 +23,7 @@ class PrintIterationMessage(TaskScheduler.Task):
 
 
 
+
 class CollectTimeSeriesData(TaskScheduler.Task):
 	def __init__(self, model):
 		self.model = model
@@ -73,7 +74,7 @@ class CollectSpectralData(TaskScheduler.Task):
 
 cfg = radmc.TurbulentComptonizationModel.Config()
 cfg.nphot          = 4
-cfg.nphot_per_mass = 0.1
+cfg.nphot_per_mass = 1e0
 cfg.ephot          = 1e-6
 cfg.ell_star       = 0.1
 cfg.beta_turb      = 0.1
@@ -100,7 +101,8 @@ scheduler.schedule(CollectSpectralData(model))
 #viscous_power_based_on_photons = 0.0
 #viscous_power_based_on_cascade = 0.0
 
-while status.simulation_time < 40.0:
+while status.simulation_time < 80.0:
+
 	scheduler.dispatch(status)
 	dt = model.get_timestep()
 	model.report = model.advance(dt)
