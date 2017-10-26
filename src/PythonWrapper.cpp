@@ -46,7 +46,14 @@ PYBIND11_MODULE (radmc, m)
     .def ("get_specific_internal_energy", &TCM::getSpecificInternalEnergy)
     .def ("get_specific_kinetic_energy", &TCM::getSpecificKineticEnergy)
     .def ("get_specific_photon_energy", &TCM::getSpecificPhotonEnergy)
-    .def ("get_eddy_velocity_at_scale", &TCM::getEddyVelocityAtScale);
+    .def ("get_eddy_velocity_at_scale", &TCM::getEddyVelocityAtScale)
+    .def ("get_average_compton_y", &TCM::getAverageComptonY);
+
+    py::enum_<TCM::ElectronTemperatureMode> (tcm, "ElectronTemperatureMode")
+    .value("Consistent", TCM::ElectronTemperatureMode::Consistent)
+    .value("Cold", TCM::ElectronTemperatureMode::Cold)
+    .value("LockPhoton", TCM::ElectronTemperatureMode::LockPhoton)
+    .value("LockUser", TCM::ElectronTemperatureMode::LockUser);
 
     py::class_<TCM::Photon> (tcm, "Photon")
     .def (py::init<>())
@@ -56,6 +63,8 @@ PYBIND11_MODULE (radmc, m)
 
     py::class_<TCM::Config> (tcm, "Config")
     .def (py::init<>())
+    .def_readwrite ("electron_temperature_mode", &TCM::Config::electron_temperature_mode)
+    .def_readwrite ("disable_cascade_model", &TCM::Config::disable_cascade_model)
     .def_readwrite ("theta", &TCM::Config::theta)
     .def_readwrite ("ell_star", &TCM::Config::ell_star)
     .def_readwrite ("nphot", &TCM::Config::nphot)

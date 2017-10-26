@@ -49,7 +49,7 @@ void RichardsonCascade::advance (double dt)
         const double dk = powerSpectrum.getBinWidth (n);
         const double Pk = powerSpectrum[n];
         const double nu = photonMeanFreePath * radiativeEnergyDensity;
-        const double viscousPower = 2 * kn * kn * nu * Pk * (kn * photonMeanFreePath < 1);
+        const double viscousPower = 2 * kn * kn * nu * Pk * viscousKernel (kn);
 
         powerSpectrum[n] -= dt * (energyFlux[n + 1] - energyFlux[n]) / dk;
         powerSpectrum[n] -= dt * viscousPower;
@@ -77,7 +77,7 @@ double RichardsonCascade::getShortestTimeScale() const
     double shortestTime = 0;
     bool first = true;
 
-    for (int n = 1; n < powerSpectrum.size() - 1; ++n)
+    for (int n = 1; n < powerSpectrum.size() - 2; ++n)
     {
         double T = getSignalTimeAtEdge(n);
 
@@ -182,7 +182,7 @@ double RichardsonCascade::getEddyVelocityAtScale (double ell) const
         const double kn = 0.5 * (k1 + k0);
         const double dk = 1.0 * (k1 - k0);
         const double Pk = powerSpectrum.lookupFunctionValue (kn);
-        I += Pk * dk * (1 - std::cos (kn * ell));
+        I += 2 * Pk * dk * (1 - std::cos (kn * ell));
     }
     return std::sqrt(I);
 }
@@ -197,7 +197,7 @@ double RichardsonCascade::getEnergyFluxThroughScale (double ell) const
 
 double RichardsonCascade::getDissipationRatePerViscosity() const
 {
-    double definiteIntegral = 0.0;
+    double I = 0.0;
 
     for (int n = 0; n < powerSpectrum.size() - 1; ++n)
     {
@@ -206,9 +206,9 @@ double RichardsonCascade::getDissipationRatePerViscosity() const
         const double kn = 0.5 * (k1 + k0);
         const double dk = 1.0 * (k1 - k0);
         const double Pk = powerSpectrum.lookupFunctionValue (kn);
-        definiteIntegral += 2 * kn * kn * Pk * dk * (kn * photonMeanFreePath < 1.);
+        I += 2 * kn * kn * Pk * dk * viscousKernel (kn);
     }
-    return definiteIntegral;
+    return I;
 }
 
 double RichardsonCascade::getEigenvalueAtEdge (int edgeIndex, double* binSpacing) const
@@ -228,7 +228,6 @@ double RichardsonCascade::getEigenvalueAtEdge (int edgeIndex, double* binSpacing
     {
         *binSpacing = dk;
     }
-
     if (std::fabs (Pn) < 1e-12)
     {
         return 0;
@@ -241,4 +240,12 @@ double RichardsonCascade::getSignalTimeAtEdge (int edgeIndex) const
     double deltaK;
     double kPerTime = getEigenvalueAtEdge (edgeIndex, &deltaK);
     return deltaK / std::max (std::abs (kPerTime), 1.0);
+}
+
+double RichardsonCascade::viscousKernel (double k) const
+{
+    const double x = k * photonMeanFreePath;
+    return 0.5 * (1 - std::tanh ((x - 1) * 0.5));
+    //return k * photonMeanFreePath < 1.;
+    return 1.0;
 }

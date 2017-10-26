@@ -72,7 +72,7 @@ class TaskScheduler(object):
         self.tasks[name].recurrence.skip_next = True
     
     def dispatch(self, status):
-        for name, task_description in self.tasks.iteritems():
+        for name, task_description in self.tasks.items():
 
             recr = task_description.recurrence
             task = task_description.task
@@ -107,7 +107,7 @@ class Status(object):
 if __name__ == "__main__":
     class MyTask(Task):
         def run(self, status, repetition):
-            print 'running task', repetition, status.simulation_iter
+            print('running task', repetition, status.simulation_iter)
         def get_recurrence(self):
             return Recurrence(0.0, 0.0, 2)
 

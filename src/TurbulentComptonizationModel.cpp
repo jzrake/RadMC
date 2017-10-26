@@ -48,15 +48,9 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
     double kT = config.theta;
     zPlusMinus = 1.0;
 
-    if (kT == 0)
-    {
-        std::cout << "Using cold electron approximation\n";
-        coldElectrons = true;
-    }
-    else
-    {
-        coldElectrons = false;
-    }
+    if (config.electron_temperature_mode == ElectronTemperatureMode::Cold) kT = 0.0;
+
+    disableCascadeModel = config.disable_cascade_model;
     protonToElectronMassRatio = 1836;
     meanParticleMass = (protonToElectronMassRatio + zPlusMinus) / (1 + zPlusMinus);
     regenerateElectronVelocityDistribution (kT);
@@ -76,8 +70,8 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
     for (int n = 0; n < nphot; ++n)
     {
         Photon p = Photon::sampleIsotropic (photonEnergy);
-        computeNextPhotonScatteringAndParcelVelocity (p);
-        photons.push_back (p);
+        computeNextPhotonScatteringAndParcelVelocity(p);
+        photons.push_back(p);
     }
 
 
@@ -105,9 +99,19 @@ TurbulentComptonizationModel::TurbulentComptonizationModel (Config config) : con
 // ============================================================================
 double TurbulentComptonizationModel::getTimestep() const
 {
-    double cascadeDt = cascadeModel.getShortestTimeScale() * 0.05;
+    double cascadeDt = cascadeModel.getShortestTimeScale() * 0.1;
     double scatterDt = photonMeanFreePath * 0.1;
     double coolingDt = getComptonCoolingTime() * 0.1;
+
+    if (cascadeDt < 1e-5)
+        std::cout << "WARNING: cascade time step very small " << cascadeDt << std::endl;
+
+    if (scatterDt < 1e-5)
+        std::cout << "WARNING: scatter time step very small " << scatterDt << std::endl;
+
+    // if (coolingDt < 1e-5 && ! lockElectronTemperature)
+    //     std::cout << "WARNING: cooling time step very small " << coolingDt << std::endl;
+
     return std::min ({cascadeDt, scatterDt, coolingDt});
 }
 
@@ -133,12 +137,12 @@ TurbulentComptonizationModel::IterationReport TurbulentComptonizationModel::adva
 
             ++numScatterings;
 
-            p.advanceToNextScatteringTime();
-            computeNextPhotonScatteringAndParcelVelocity (p);
+            p.advanceToNextScatteringTime (getElectronTemperature(), photonMeanFreePath);
+            computeNextPhotonScatteringAndParcelVelocity(p);
         }
     }
 
-    const double epsEllStar = cascadeModel.getEnergyFluxThroughScale (photonMeanFreePath * 0.2);
+    const double epsEllStar = cascadeModel.getEnergyFluxThroughScale (photonMeanFreePath * 0.02);
     const double turbToInt  = epsEllStar * dt;
     const double gammaToInt = gammaToAll + turbToGamma;
     const double allToInt   = gammaToInt + turbToInt;
@@ -147,7 +151,11 @@ TurbulentComptonizationModel::IterationReport TurbulentComptonizationModel::adva
     cascadeModel.radiativeEnergyDensity = getSpecificPhotonEnergy();
     regenerateElectronVelocityDistribution (getElectronTemperature());
 
-    cascadeModel.advance (dt);
+    if (! disableCascadeModel)
+    {
+        cascadeModel.advance (dt);
+    }
+
     simulationTime += dt;
 
     IterationReport report;
@@ -217,8 +225,17 @@ double TurbulentComptonizationModel::getSpecificPhotonEnergy() const
 
 double TurbulentComptonizationModel::getElectronTemperature() const
 {
-    double e = plasmaInternalEnergy;
-    return 1. / 3 * meanParticleMass * e;
+    switch (config.electron_temperature_mode)
+    {
+        case ElectronTemperatureMode::Consistent:
+        {
+            double e = plasmaInternalEnergy;
+            return 1. / 3 * meanParticleMass * e;
+        }
+        case ElectronTemperatureMode::Cold: return 0.0;
+        case ElectronTemperatureMode::LockPhoton: return getPhotonTemperature();
+        case ElectronTemperatureMode::LockUser: return config.theta;
+    }
 }
 
 double TurbulentComptonizationModel::getPhotonTemperature() const
@@ -234,7 +251,7 @@ double TurbulentComptonizationModel::getEffectiveWaveTemperature() const
 
 double TurbulentComptonizationModel::getComptonCoolingTime() const
 {
-    if (coldElectrons)
+    if (config.electron_temperature_mode != ElectronTemperatureMode::Consistent)
     {
         return 1.0; // Just an arbitrary "large" number.
     }
@@ -250,6 +267,17 @@ double TurbulentComptonizationModel::getComptonCoolingTime() const
 double TurbulentComptonizationModel::getEddyVelocityAtScale (double ell) const
 {
     return cascadeModel.getEddyVelocityAtScale (ell);
+}
+
+double TurbulentComptonizationModel::getAverageComptonY() const
+{
+    double y = 0.0;
+
+    for (auto photon : photons)
+    {
+        y += photon.cumulativeComptonY;
+    }
+    return y / photons.size();
 }
 
 
@@ -354,22 +382,21 @@ FourVector TurbulentComptonizationModel::doComptonScattering (Photon& photon, El
 
 void TurbulentComptonizationModel::regenerateElectronVelocityDistribution (double electronTemperature)
 {
-    if (electronTemperature < 0.0 && ! coldElectrons)
+    if (config.electron_temperature_mode == ElectronTemperatureMode::Cold)
+    {
+        electronGammaBeta = RandomVariable::diracDelta(0.0);
+        return;
+    }
+    if (electronTemperature < 0.0)
     {
         std::cout
         << "WARNING: negative electron temperature "
         << electronTemperature
         << ", using floor"
         << std::endl;
-
         electronTemperature = 1e-8;
     }
 
-    if (coldElectrons)
-    {
-        electronGammaBeta = RandomVariable::diracDelta(0.0);
-        return;
-    }
 
     double kT = electronTemperature;
     double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity

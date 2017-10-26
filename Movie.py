@@ -15,13 +15,13 @@ class CascadePlot(object):
         ax.set_ylabel(r"$dP/dk$")
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_xlim(0.5, 1e3)
+        ax.set_xlim(0.5, 1e5)
         ax.set_ylim(1e-8, 1)
         ax.axvline(1. / h5_file['config']['ell_star'].value, ls='-.', lw=0.5, c='b', label=r'$\ell_\star$', ymax=0.5)
         ax.legend(loc='best')
 
     def load_frame(self, frame):
-    	grp = self.h5_file['spectra'].values()[frame]
+        grp = list(self.h5_file['spectra'].values())[frame]
         k = grp['cascade_k']
         P = grp['cascade_P']
         self.line.set_xdata(k)
@@ -45,12 +45,12 @@ class SpectrumPlot(object):
         ax.set_ylabel(r"$dN/d\log\varepsilon$")
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_xlim(1e-7, 1e0)
+        ax.set_xlim(1e-10, 1e1)
         ax.set_ylim(1e-3, 1e0)
         ax.legend(loc='upper left')
 
     def load_frame(self, frame):
-        grp = self.h5_file['spectra'].values()[frame]
+        grp = list(self.h5_file['spectra'].values())[frame]
         E = grp['photon_E'][...]
         n = grp['photon_N'][...]
         self.line.set_xdata(E)
@@ -95,9 +95,8 @@ class TimeSeriesTemperatures(object):
         ax.set_yscale('log')
         ax.set_ylim(1e-8, 1.0)
 
-
     def load_frame(self, frame):
-        t = self.h5_file['spectra'].values()[frame]['time'].value
+        t = list(self.h5_file['spectra'].values())[frame]['time'].value
         self.vertical_bar.set_xdata([t, t])
         self.vertical_bar.set_ydata(self.ax.get_ylim())
         return self.elec_kT, self.phot_kT, self.wave_kT, self.vertical_bar
@@ -129,12 +128,44 @@ class TimeSeriesEnergies(object):
         ax.set_yscale('log')
 
     def load_frame(self, frame):
-        t = self.h5_file['spectra'].values()[frame]['time'].value
-
+        t = list(self.h5_file['spectra'].values())[frame]['time'].value
         self.vertical_bar.set_xdata([t, t])
         self.vertical_bar.set_ydata(self.ax.get_ylim())
 
         return self.Eint, self.Erad, self.Ekin, self.vertical_bar
+
+
+
+class PhotonTemperatureVersusComptonY(object):
+    def __init__(self, ax, h5_file):
+        self.ax = ax
+        self.h5_file = h5_file
+        self.simulationTime     = h5_file['time_series']['time'][...]
+        self.comptonY           = h5_file['time_series']['compton_y_parameter'][...]
+        self.photonTemperature  = h5_file['time_series']['phot_kT'][...]
+
+        self.phot_kT,      = self.ax.plot([], [], label=r'$k T_\gamma}$')
+        self.vertical_bar, = self.ax.plot([], [], ls='--', lw=0.5, c='k')
+
+        self.phot_kT.set_data(self.simulationTime, self.comptonY)
+
+        ax.relim()
+        ax.autoscale(enable=True)
+        ax.legend(loc='best')
+        ax.set_xlabel("Time")
+        ax.set_ylabel("Compton Y paramter")
+        ax.set_xscale('log')
+        #ax.set_yscale('log')
+
+    def load_frame(self, frame):
+        #tframe = list(self.h5_file['spectra'].values())[frame]['time'].value
+        #yframe = np.argmin(abs(h5_file['time_series']['time'][...] - tframe))
+        #y = self.comptonY[yframe]
+
+        t = list(self.h5_file['spectra'].values())[frame]['time'].value
+        self.vertical_bar.set_xdata([t, t])
+        self.vertical_bar.set_ydata(self.ax.get_ylim())
+        return self.phot_kT, self.vertical_bar
 
 
 
@@ -150,16 +181,24 @@ def composite_load_frame(plots):
 
 h5_file = h5py.File('radmc.h5', 'r')
 fig = plt.figure(figsize=[10,6])
-ax1 = fig.add_subplot(2, 2, 1)
-ax2 = fig.add_subplot(2, 2, 2)
-ax3 = fig.add_subplot(2, 2, 3)
-ax4 = fig.add_subplot(2, 2, 4)
-plot1 = TimeSeriesEnergies(ax1, h5_file)
-plot2 = CascadePlot(ax2, h5_file)
-plot3 = TimeSeriesTemperatures(ax3, h5_file)
-plot4 = SpectrumPlot(ax4, h5_file)
+mode = 'everything'
 
-plots = [plot1, plot2, plot3, plot4]
+if mode == 'everything':
+    ax1 = fig.add_subplot(2, 2, 1)
+    ax2 = fig.add_subplot(2, 2, 2)
+    ax3 = fig.add_subplot(2, 2, 3)
+    ax4 = fig.add_subplot(2, 2, 4)
+    plot1 = TimeSeriesEnergies(ax1, h5_file)
+    plot2 = CascadePlot(ax2, h5_file)
+    plot3 = TimeSeriesTemperatures(ax3, h5_file)
+    plot4 = SpectrumPlot(ax4, h5_file)
+    plots = [plot1, plot2, plot3, plot4]
+elif mode == 'photons_only':
+    ax1 = fig.add_subplot(1, 2, 1)
+    ax2 = fig.add_subplot(1, 2, 2)
+    plot1 = PhotonTemperatureVersusComptonY(ax1, h5_file)
+    plot2 = SpectrumPlot(ax2, h5_file)
+    plots = [plot1, plot2]
 
 
 
@@ -175,7 +214,7 @@ animation = FuncAnimation(
     fig,
     composite_load_frame(plots),
     frames=range(0, len(h5_file['spectra'].keys()), 1),
-    interval=100,
+    interval=20,
     blit=True)
 
 # for plot in plots:

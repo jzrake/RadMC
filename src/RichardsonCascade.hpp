@@ -114,6 +114,7 @@ public:
 private:
     double getEigenvalueAtEdge (int edgeIndex, double* binSpacing=nullptr) const;
     double getSignalTimeAtEdge (int edgeIndex) const;
+    double viscousKernel (double k) const;
 };
 
 

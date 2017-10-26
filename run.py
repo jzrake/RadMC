@@ -19,7 +19,7 @@ class PrintIterationMessage(TaskScheduler.Task):
 			report.mean_scatterings_per_photon))
 
 	def get_recurrence(self):
-	    return TaskScheduler.Recurrence(0.0, 0.0, 100)
+	    return TaskScheduler.Recurrence(0.0, 0.0, 10)
 
 
 
@@ -32,7 +32,7 @@ class CollectTimeSeriesData(TaskScheduler.Task):
 			self.h5_time_series.create_dataset(key, (0,), maxshape=(None,))
 
 	def run(self, status, repetition):
-		for key, value in self.sample(status.simulation_time).iteritems():
+		for key, value in self.sample(status.simulation_time).items():
 			self.h5_time_series[key].resize((repetition + 1,))
 			self.h5_time_series[key][-1] = value
 
@@ -46,10 +46,10 @@ class CollectTimeSeriesData(TaskScheduler.Task):
 			elec_kT                    = self.model.get_electron_temperature(),
 			wave_kT                    = self.model.get_effective_wave_temperature(),
 			compton_cooling_time       = self.model.get_compton_cooling_time(),
+			compton_y_parameter        = self.model.get_average_compton_y(),
 			specific_kinetic_energy    = self.model.get_specific_kinetic_energy(),
 			specific_internal_energy   = self.model.get_specific_internal_energy(),
 			specific_photon_energy     = self.model.get_specific_photon_energy())
-
 
 
 
@@ -67,18 +67,29 @@ class CollectSpectralData(TaskScheduler.Task):
 		itr['time'] = status.simulation_time
 
 	def get_recurrence(self):
-		return TaskScheduler.Recurrence(0.2)
+		return TaskScheduler.Recurrence(0.002)
 
 
+arr = 2e-2
+tau = 640
+bet = 0.8
+dub = 0.2
 
+
+temp_modes = radmc.TurbulentComptonizationModel.ElectronTemperatureMode
 
 cfg = radmc.TurbulentComptonizationModel.Config()
-cfg.nphot          = 4
-cfg.nphot_per_mass = 1e0
-cfg.ephot          = 1e-6
-cfg.ell_star       = 0.1
-cfg.beta_turb      = 0.1
-cfg.theta          = 1e-6
+cfg.electron_temperature_mode = temp_modes.Cold
+
+cfg.disable_cascade_model = False
+cfg.nphot                 = 4
+cfg.theta                 = 1e-6
+cfg.ell_star              = 1.0 / tau
+cfg.beta_turb             = bet
+cfg.nphot_per_mass        = 1. / arr
+# cfg.ephot                 = dub * arr
+
+cfg.ephot                 = 1e-2
 
 
 scheduler = TaskScheduler.TaskScheduler()
@@ -90,7 +101,10 @@ model.h5_file = h5py.File('radmc.h5', 'w')
 h5_cfg = model.h5_file.create_group('config')
 for k in dir(cfg):
 	if not k.startswith('__'):
-		h5_cfg[k] = getattr(cfg, k)
+		try:
+			h5_cfg[k] = getattr(cfg, k)
+		except TypeError:			
+			h5_cfg[k] = str(getattr(cfg, k))
 
 
 scheduler.schedule(PrintIterationMessage(model))
@@ -98,17 +112,10 @@ scheduler.schedule(CollectTimeSeriesData(model))
 scheduler.schedule(CollectSpectralData(model))
 
 
-#viscous_power_based_on_photons = 0.0
-#viscous_power_based_on_cascade = 0.0
-
-while status.simulation_time < 80.0:
+while status.simulation_time < 0.33:
 
 	scheduler.dispatch(status)
 	dt = model.get_timestep()
 	model.report = model.advance(dt)
 	status.step(dt)
-
-	#viscous_power_based_on_photons += model.report.viscous_power_based_on_photons
-	#viscous_power_based_on_cascade += model.report.viscous_power_based_on_cascade
-	#print(model.report.viscous_power_based_on_photons, viscous_power_based_on_photons, viscous_power_based_on_cascade)
 

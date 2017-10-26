@@ -11,10 +11,16 @@ class TurbulentComptonizationModel
 {
 public:
 
+    enum class ElectronTemperatureMode
+    {
+        Cold, Consistent, LockPhoton, LockUser
+    };
 
 
     struct Config
     {
+        ElectronTemperatureMode electron_temperature_mode;
+        bool disable_cascade_model = false;
         double theta = 0.01; // electron temperature in units of electron rest mass
         double ell_star = 1e-3; // photon mean free path
         double nphot = 4; // log10 of photon number
@@ -93,9 +99,16 @@ public:
         This is just a shortcut for advancing the position to the next scattering
         time.
         */
-        void advanceToNextScatteringTime()
+        void advanceToNextScatteringTime (double thetaElectron, double meanFreePath)
         {
-            advancePosition (nextScatteringTime - position[0]);
+            const double thetaPhoton = momentum[0] / 3.;
+            const double dt = nextScatteringTime - position[0];
+            const double dl = dt / meanFreePath;
+            const double dy = (thetaElectron - thetaPhoton) * dl;
+
+            position += getDisplacement (dt);
+            cumulativeOpticalDepth += dl;
+            cumulativeComptonY += dy;
         }
 
         /**
@@ -111,6 +124,8 @@ public:
         FourVector momentum;
         FourVector fluidParcelFourVelocity;
         double nextScatteringTime;
+        double cumulativeOpticalDepth = 0.0;
+        double cumulativeComptonY = 0.0;
     };
 
 
@@ -141,6 +156,7 @@ public:
     double getSpecificKineticEnergy() const;
     double getSpecificPhotonEnergy() const;
     double getEddyVelocityAtScale (double ell) const;
+    double getAverageComptonY() const;
     
 private:
     double getFluidVelocityAtPhotonMeanFreePathScale() const;
@@ -158,7 +174,7 @@ private:
     RandomVariable electronGammaBeta;
     RandomVariable photonEnergy;
     RichardsonCascade cascadeModel;
-    bool coldElectrons;
+    bool disableCascadeModel;
     double simulationTime;
     std::vector<Photon> photons;
 
