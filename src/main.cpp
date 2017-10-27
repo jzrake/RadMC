@@ -2,17 +2,15 @@
 #include "TurbulenceModelDriver.hpp"
 #include "ComptonizationModelDriver.hpp"
 
+#define CATCH_CONFIG_RUNNER
+#define CATCH_CONFIG_FAST_COMPILE
+#include "../lib/catch.hpp"
+
+
 
 
 int main (int argc, const char *argv[])
 {
-    // TurbulenceModelDriver driver;
-    // driver.run (argc, argv);
-
-
-    ComptonizationModelDriver comptonizer;
-    comptonizer.run (argc, argv);
-
-    return 0;
+    return Catch::Session().run (argc, argv);
 }
 

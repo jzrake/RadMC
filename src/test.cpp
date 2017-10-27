@@ -1,13 +1,15 @@
+#define COMPILE_TESTS
 #ifdef COMPILE_TESTS
-#define CATCH_CONFIG_MAIN
-#include "../lib/catch.hpp"
 
+#define CATCH_CONFIG_FAST_COMPILE
+#include "../lib/catch.hpp"
 #include "FourVector.hpp"
 #include "LorentzBoost.hpp"
 #include "QuadratureRule.hpp"
 #include "NewtonRaphesonSolver.hpp"
 #include "RootBracketingSolver.hpp"
 #include "RotationMatrix.hpp"
+#include "RungeKutta.hpp"
 
 
 SCENARIO ("FourVector")
@@ -180,7 +182,7 @@ SCENARIO ("Root finding 2", "[RootBracketingSolver]")
     }
 }
 
-SCENARIO ("Rotation matrices", "[RotationMatrixn]")
+SCENARIO ("Rotation matrices", "[RotationMatrix]")
 {
     GIVEN ("The unit vector zhat")
     {
@@ -226,7 +228,7 @@ SCENARIO ("Rotation matrices", "[RotationMatrixn]")
     }
 }
 
-SCENARIO ("Sampling unit vectors")
+SCENARIO ("Sampling unit vectors works OK")
 {
     GIVEN ("Pitch angles are distributed around -1")
     {
@@ -255,6 +257,39 @@ SCENARIO ("Sampling unit vectors")
             {
                 REQUIRE (n.sampleAxisymmetric (delta).getZ() == -1);
             }
+        }
+    }
+}
+
+SCENARIO ("RungeKutta integration works", "[RungeKutta]")
+{
+    RungeKutta solver;
+
+    GIVEN ("A the function y'=1")
+    {
+        solver.setFunction ([] (double y, double t) { return 1.0;} );
+        solver.setValues (0.0, 0.0);
+        solver.integrate (1.0);
+
+        THEN ("Integrating to t=1 gives y=1")
+        {
+            REQUIRE (solver.getT() == 1.0);
+            REQUIRE (solver.getY() == 1.0);
+            REQUIRE (solver.getDivisionsForLast() == 1);
+        }
+    }
+    GIVEN ("A the function y'=y")
+    {
+        solver.setFunction ([] (double y, double t) { return y;} );
+        solver.setValues (1.0, 0.0);
+        solver.integrate (10.0);
+        solver.setTolerance (1e-13);
+
+        THEN ("Integrating to t=1 gives y=e")
+        {
+            REQUIRE (solver.getT() == 10.0);
+            REQUIRE (solver.getY() == Approx (std::exp (10.0)).epsilon (1e-13));
+            REQUIRE (solver.getDivisionsForLast() == 8192);
         }
     }
 }
