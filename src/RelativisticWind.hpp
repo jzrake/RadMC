@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include "RungeKutta.hpp"
+#include "FourVector.hpp"
+#include "PhysicsConstants.hpp"
 
 
 
@@ -8,15 +10,64 @@
 class RelativisticWind
 {
 public:
-    struct WindState
+    class WindState
     {
+    public:
+        enum class Species { baryon, electron, photon };
+
+        /**
+        Constructor for a wind state. The first argument, reference to the
+        wind model, is not kept.
+        */
         WindState (const RelativisticWind& wind, double r, double u);
+        WindState& setLuminosityPerSteradian (double L) { luminosityPerSteradian = L; return *this; }
+        WindState& setInnerRadiusCm (double R) { innerRadiusCm = R; return *this; }
+        WindState& setLeptonsPerBaryon (double Z) { leptonsPerBaryon = Z; return *this; }
+        WindState& setPhotonsPerBaryon (double m) { photonsPerBaryon = m; return *this; }
+        WindState& setPropagationAngle (UnitVector uhat) { propagationAngle = uhat; return *this; }
+
+        /**
+        Return the temperature kT / me c^2. This is jsut a conversion from the
+        (dimensionless) specific enthalpy mu, based on the number of leptons
+        and photons per bayron.
+        */
+        double temperature() const;
+
+        /**
+        Return the comoving number density of the given species, in 1 / cm^3.
+        */
+        double properNumberDensity (Species) const;
+
+        /**
+        Return the mean-free-path to free electron scattering, in cm, for a
+        photon propagating in the given direction (defined as dl / dt where dt
+        is the differential optical depth). This depends on the specific wind
+        luminosity (eta) set by the user, and the absolute wind luminosity per
+        Sr and lepton fraction set by the user. Klein-Nishina effects are
+        currently ignored.
+        */
+        double thomsonMeanFreePath (UnitVector nhat) const;
+
         double r; // radius (in units of inner boundary)
         double u; // four-velocity, u (in units of c)
         double g; // wind Lorentz factor
         double m; // specific enthalpy mu (in units of c^2, not including rest-mass)
         double p; // gas pressure (relative to density)
         double d; // gas density (equal to 1 / (r^2 u))
+
+    private:
+        // From wind model ====================================================
+        double specificWindPower;
+        double initialFourVelocity;
+        double adiabaticIndex;
+
+        // Set by user ========================================================
+        double luminosityPerSteradian = 1.0; // erg / s / Sr
+        double innerRadiusCm = 1.0;          // inner radius (cm)
+        double leptonsPerBaryon = 1.0;       // Z_{\pm}
+        double photonsPerBaryon = 1.0;       // n-gamma / np
+        UnitVector propagationAngle = UnitVector::zhat;
+        PhysicsConstants P;
     };
 
     RelativisticWind();
@@ -26,12 +77,12 @@ public:
     steradian, the isotropic equivalent wind luminosity would be L = 4 pi f
     eta.
     */
-    void setWindPower (double eta);
+    RelativisticWind& setSpecificWindPower (double eta);
 
     /**
     Set the wind velocity at the inner boundary.
     */
-    void setInitialFourVelocity (double u0);
+    RelativisticWind& setInitialFourVelocity (double u0);
 
     /**
     Integrate a wind profile to the given outer radius. The inner radius is
@@ -46,7 +97,7 @@ public:
 
 private:
     void resetSolverFunction();
-    double windPower = 10.0;
+    double specificWindPower = 10.0;
     double initialFourVelocity = 1.0;
     double adiabaticIndex = 4. / 3;
     mutable RungeKutta solver;

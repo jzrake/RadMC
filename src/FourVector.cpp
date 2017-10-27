@@ -167,6 +167,16 @@ FourVector FourVector::fromBetaAndUnitVector (double beta, UnitVector nhat)
     return fromGammaBetaAndUnitVector (beta / std::sqrt (1 - beta * beta), nhat);
 }
 
+FourVector FourVector::spaceLikeInDirection (double radius, UnitVector nhat)
+{
+    double u[4] = {0, 0, 0, 0};
+    nhat.getCartesianComponents (u[1], u[2], u[3]);
+    u[1] *= radius;
+    u[2] *= radius;
+    u[3] *= radius;
+    return FourVector (u);
+}
+
 double FourVector::getTimeComponent() const
 {
     return components[0];

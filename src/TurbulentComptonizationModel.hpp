@@ -157,7 +157,7 @@ public:
     double getSpecificPhotonEnergy() const;
     double getEddyVelocityAtScale (double ell) const;
     double getAverageComptonY() const;
-    
+
 private:
     double getFluidVelocityAtPhotonMeanFreePathScale() const;
     double getTotalPhotonEnergyMC() const;

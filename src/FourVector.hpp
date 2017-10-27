@@ -104,7 +104,8 @@ public:
     static FourVector nullWithUnitVector (UnitVector nhat);
     static FourVector fromGammaBetaAndUnitVector (double gammaBeta, UnitVector nhat);
     static FourVector fromBetaAndUnitVector (double beta, UnitVector nhat);
-
+    static FourVector spaceLikeInDirection (double radius, UnitVector nhat);
+    
     /**
     Return the magnitude of the vector's associated three-velocity, sqrt (1 -
     1 / u0^2), where u0 is the Lorentz factor. This assumes isFourVelocity()

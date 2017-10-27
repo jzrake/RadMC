@@ -4,10 +4,15 @@
 
 
 
-RelativisticWind::WindState::WindState (const RelativisticWind& wind, double r, double u) : r(r), u(u)
+RelativisticWind::WindState::WindState (const RelativisticWind& wind, double r, double u) :
+r(r),
+u(u),
+specificWindPower (wind.specificWindPower),
+initialFourVelocity (wind.initialFourVelocity),
+adiabaticIndex (wind.adiabaticIndex)
 {
     const double gm = wind.adiabaticIndex;
-    const double e0 = wind.windPower;
+    const double e0 = wind.specificWindPower;
     const double u0 = wind.initialFourVelocity;
     const double r0 = 1.0;
     const double f0 = 1.0;
@@ -24,21 +29,61 @@ RelativisticWind::WindState::WindState (const RelativisticWind& wind, double r, 
     g = std::sqrt (1 + u * u);
 }
 
+double RelativisticWind::WindState::temperature() const
+{
+    const double gm = adiabaticIndex;
+    const double Z = leptonsPerBaryon;
+    const double X = photonsPerBaryon;
+    const double T = (Z + P.mp / P.me) / (1 + Z + X) * m * (gm - 1) / gm;
+    return T;
+}
+
+double RelativisticWind::WindState::properNumberDensity (WindState::Species species) const
+{
+    const double R = innerRadiusCm;
+    const double F = luminosityPerSteradian / specificWindPower; // L = 4 pi F eta (F is in erg / s)
+    const double Z = leptonsPerBaryon;
+    const double D = d * F / R / R / P.c; // rest-mass density (erg / cm^3)
+    const double np = D / (P.mp * P.c * P.c * (1 + Z * P.me / P.mp));
+
+    switch (species)
+    {
+        case Species::baryon: return np;
+        case Species::electron: return np * leptonsPerBaryon;
+        case Species::photon: return np * photonsPerBaryon;
+    }
+}
+
+double RelativisticWind::WindState::thomsonMeanFreePath (UnitVector nhat) const
+{
+    const double cosTheta = nhat.pitchAngleWith (propagationAngle);
+    const double ne = properNumberDensity (Species::electron);
+    const double dl = 1.0;
+    const double dt = dl * (1 - u / g * cosTheta) * g * ne * P.st;
+    return dl / dt;
+}
+
+
+
+
+// ============================================================================
 RelativisticWind::RelativisticWind()
 {
     resetSolverFunction();
 }
 
-void RelativisticWind::setWindPower (double eta)
+RelativisticWind& RelativisticWind::setSpecificWindPower (double eta)
 {
-    windPower = eta;
+    specificWindPower = eta;
     resetSolverFunction();
+    return *this;
 }
 
-void RelativisticWind::setInitialFourVelocity (double u0)
+RelativisticWind& RelativisticWind::setInitialFourVelocity (double u0)
 {
     initialFourVelocity = u0;
     resetSolverFunction();
+    return *this;
 }
 
 RelativisticWind::WindState RelativisticWind::integrate (double outerRadius) const
@@ -76,7 +121,7 @@ std::vector<RelativisticWind::WindState> RelativisticWind::integrate (std::vecto
 void RelativisticWind::resetSolverFunction()
 {
     const double gm = adiabaticIndex;
-    const double e0 = windPower;
+    const double e0 = specificWindPower;
     const double u0 = initialFourVelocity;
     const double r0 = 1.0;
     const double f0 = 1.0;
