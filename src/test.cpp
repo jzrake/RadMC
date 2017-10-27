@@ -12,6 +12,8 @@
 #include "RungeKutta.hpp"
 
 
+
+
 SCENARIO ("FourVector")
 {
     GIVEN ("u = [1 0 0 0]")
@@ -293,5 +295,6 @@ SCENARIO ("RungeKutta integration works", "[RungeKutta]")
         }
     }
 }
+
 #endif // COMPILE_TESTS
 
