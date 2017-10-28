@@ -206,10 +206,15 @@ double FourVector::getThreeVelocityAlong (const UnitVector& nhat) const
     return (u[1] * nx + u[2] * ny + u[3] * nz) / u[0];
 }
 
-double FourVector::getSpatialComponentMagnitude() const
+double FourVector::radius() const
 {
     const double *u = components;
     return std::sqrt (u[1] * u[1] + u[2] * u[2] + u[3] * u[3]);
+}
+
+double FourVector::theta() const
+{
+    return std::acos (components[3] / radius());
 }
 
 UnitVector FourVector::getUnitThreeVector() const

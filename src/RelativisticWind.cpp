@@ -63,6 +63,11 @@ double RelativisticWind::WindState::thomsonMeanFreePath (UnitVector nhat) const
     return dl / dt;
 }
 
+FourVector RelativisticWind::WindState::fourVelocity() const
+{
+    return FourVector::fromGammaBetaAndUnitVector (u, propagationAngle);
+}
+
 
 
 

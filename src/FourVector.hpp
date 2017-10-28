@@ -123,7 +123,12 @@ public:
     Return the norm of the vector's spatial components. This does not assume
     anything about the four-vector.
     */
-    double getSpatialComponentMagnitude() const;
+    double radius() const;
+
+    /**
+    Return the polar angle theta of the spatial components.
+    */
+    double theta() const;
 
     /**
     Return a unit vector from this four vector's spatial components.

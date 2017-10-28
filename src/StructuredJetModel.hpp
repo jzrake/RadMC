@@ -17,8 +17,6 @@ public:
     public:
         Electron () : momentum (1, 0, 0, 0) {}
         Electron (FourVector momentum) : momentum (momentum) {}
-        FourVector getFourVelocity() const { return momentum; }
-        Electron transformedBy (const LorentzBoost& L) const { return momentum.transformedBy (L); }
         FourVector momentum;
     };
 
@@ -44,17 +42,17 @@ public:
     Photon generatePhoton (double r, double theta) const;
 
     /**
-    Generate a new electron at the given radius and polar angle. The electron
-    is sampled at a random azimuth phi, and isotropically in the wind rest frame
-    at that point. The electron energy is sampled from a relativistic Maxwellian
-    with the local temperature.
+    Generate a new electron to scatter with the given photon based on its
+    location and propagation direction. The electron energy is sampled from a
+    relativistic Maxwellian with the local wind temperature.
     */
-    Electron generateElectron (double r, double theta) const;
+    Electron generateElectron (const Photon& photon) const;
 
     /**
     Get the state of the wind at the given coordinates.
     */
     RelativisticWind::WindState sampleWind (double r, double theta) const;
+    RelativisticWind::WindState sampleWind (const FourVector& position) const;
 
     /**
     Evolve a single photon from the given inner radius until it escapes to

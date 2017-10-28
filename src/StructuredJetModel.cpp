@@ -3,6 +3,7 @@
 #include "RelativisticWind.hpp"
 #include "TabulatedFunction.hpp"
 #include "Distributions.hpp"
+#include "ScatteringOperations.hpp"
 
 
 
@@ -43,7 +44,7 @@ StructuredJetModel::StructuredJetModel()
 
 std::vector<StructuredJetModel::Photon> StructuredJetModel::generatePhotonPath (double innerRadius, double theta)
 {
-    auto photon = generatePhoton (innerRadius, theta);
+    // auto photon = generatePhoton (innerRadius, theta);
     auto path = std::vector<StructuredJetModel::Photon>();
 
     for (int n = 0; n < 100; ++n)
@@ -60,10 +61,10 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
     auto photon = Photon();
     const double phi = RandomVariable::sampleUniformAzimuth();
     const double ur = sampleWind (r, theta).u;
-    const auto radiusUnitVector = UnitVector (std::cos (theta), phi);
-    const auto u = FourVector::fromGammaBetaAndUnitVector (ur, radiusUnitVector);
+    const auto rhat = UnitVector (std::cos (theta), phi); // wind propagation angle
+    const auto u = FourVector::fromGammaBetaAndUnitVector (ur, rhat);
 
-    photon.position = FourVector::spaceLikeInDirection (r, radiusUnitVector);
+    photon.position = FourVector::spaceLikeInDirection (r, rhat);
     photon.momentum = FourVector::nullWithUnitVector (UnitVector::sampleIsotropic()).transformedBy(u);
 
     const double kT = sampleWind (r, theta).temperature();
@@ -74,27 +75,29 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
     return photon;
 }
 
-StructuredJetModel::Electron StructuredJetModel::generateElectron (double r, double theta) const
+StructuredJetModel::Electron StructuredJetModel::generateElectron (const Photon& photon) const
 {
-
-    const double kT = sampleWind (r, theta).temperature();
-    auto electronGammaBeta = RandomVariable::diracDelta (kT);
-
+    auto sops = ScatteringOperations();
+    auto state = sampleWind (photon.position);
     auto electron = Electron();
-    const double phi = RandomVariable::sampleUniformAzimuth();
-    const double ur = sampleWind (r, theta).u;
-    const auto radiusUnitVector = UnitVector (std::cos (theta), phi);
-
-    const auto ubulk = FourVector::fromGammaBetaAndUnitVector (ur, radiusUnitVector);
-    const auto uther = electronGammaBeta.sample();
-
-    electron.momentum = FourVector::fromGammaBetaAndUnitVector (uther, UnitVector::sampleIsotropic());
-
-    return electron.transformedBy(ubulk);
+    double uth = std::sqrt (3. * state.temperature()); // TODO: properly sample a Maxwellian here
+    electron.momentum = sops.sampleScatteredParticles (state.fourVelocity(), photon.momentum, uth);
+    return electron;
 }
 
 RelativisticWind::WindState StructuredJetModel::sampleWind (double r, double theta) const
 {
-    auto wind = RelativisticWind().setSpecificWindPower (10.0).setInitialFourVelocity (2.0);
-    return wind.integrate(r);
+    const auto x = FourVector::spaceLikeInDirection (r, UnitVector (std::cos (theta), 0.0));
+    return sampleWind(x);
+}
+
+RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& position) const
+{
+    auto wind = RelativisticWind();
+    wind.setSpecificWindPower (10.0);
+    wind.setInitialFourVelocity (2.0); // TODO: set wind parameters and structure here
+    const double r = position.radius();
+    const double t = position.theta();
+    auto state = sampleWind (r, t);
+    return state.setPropagationAngle (position.getUnitThreeVector());
 }

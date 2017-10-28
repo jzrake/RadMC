@@ -48,6 +48,12 @@ public:
         */
         double thomsonMeanFreePath (UnitVector nhat) const;
 
+        /**
+        Return the four-velocity of the wind state. This depends on the
+        propagation angle set by the user.
+        */
+        FourVector fourVelocity() const;
+        
         // Wind state variables ===============================================
         double r; // radius (in units of inner boundary)
         double u; // four-velocity, u (in units of c)
