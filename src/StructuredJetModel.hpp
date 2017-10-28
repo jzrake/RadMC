@@ -63,5 +63,4 @@ public:
     std::vector<Photon> generatePhotonPath (double initialRadius, double theta);
 
 private:
-    FourVector doComptonScattering (Photon& photon, Electron& electron) const;
 };

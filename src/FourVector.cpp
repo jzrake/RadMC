@@ -218,6 +218,19 @@ UnitVector FourVector::getUnitThreeVector() const
     return UnitVector::normalizeFrom (u[1], u[2], u[3]);
 }
 
+FourVector FourVector::operator-() const
+{
+    const double *u = components;
+    return FourVector (u[0], -u[1], -u[2], -u[3]);
+}
+
+double FourVector::operator* (const FourVector& other) const
+{
+    const double *u = components;
+    const double *v = other.components;
+    return -u[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3];
+}
+
 FourVector FourVector::operator+ (const FourVector& other) const
 {
     const double *u = components;
@@ -232,10 +245,18 @@ FourVector FourVector::operator- (const FourVector& other) const
     return FourVector (u[0] - v[0], u[1] - v[1], u[2] - v[2], u[3] - v[3]);
 }
 
-FourVector FourVector::operator-() const
+FourVector FourVector::operator* (double scalar) const
 {
     const double *u = components;
-    return FourVector (u[0], -u[1], -u[2], -u[3]);
+    const double s = scalar;
+    return FourVector (u[0] * s, u[1] * s, u[2] * s, u[3] * s);
+}
+
+FourVector FourVector::operator/ (double scalar) const
+{
+    const double *u = components;
+    const double s = scalar;
+    return FourVector (u[0] / s, u[1] / s, u[2] / s, u[3] / s);
 }
 
 FourVector& FourVector::operator+= (const FourVector& other)
@@ -254,25 +275,20 @@ FourVector& FourVector::operator-= (const FourVector& other)
     return *this;
 }
 
-FourVector FourVector::operator* (double scalar) const
+FourVector& FourVector::operator*= (double scalar)
 {
-    const double *u = components;
-    const double s = scalar;
-    return FourVector (u[0] * s, u[1] * s, u[2] * s, u[3] * s);
+    for (int n = 0; n < 4; ++n)
+        components[n] *= scalar;
+
+    return *this;
 }
 
-FourVector FourVector::operator/ (double scalar) const
+FourVector& FourVector::operator/= (double scalar)
 {
-    const double *u = components;
-    const double s = scalar;
-    return FourVector (u[0] / s, u[1] / s, u[2] / s, u[3] / s);
-}
+    for (int n = 0; n < 4; ++n)
+        components[n] /= scalar;
 
-double FourVector::operator* (const FourVector& other) const
-{
-    const double *u = components;
-    const double *v = other.components;
-    return -u[0] * v[0] + u[1] * v[1] + u[2] * v[2] + u[3] * v[3];
+    return *this;
 }
 
 FourVector FourVector::transformedBy (const LorentzBoost& L) const

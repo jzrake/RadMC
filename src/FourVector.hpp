@@ -105,7 +105,7 @@ public:
     static FourVector fromGammaBetaAndUnitVector (double gammaBeta, UnitVector nhat);
     static FourVector fromBetaAndUnitVector (double beta, UnitVector nhat);
     static FourVector spaceLikeInDirection (double radius, UnitVector nhat);
-    
+
     /**
     Return the magnitude of the vector's associated three-velocity, sqrt (1 -
     1 / u0^2), where u0 is the Lorentz factor. This assumes isFourVelocity()
@@ -144,6 +144,16 @@ public:
     double& operator[] (int index);
 
     /**
+    Return four vector whose *spatial components* are negated.
+    */
+    FourVector operator-() const;
+
+    /**
+    Return the contraction of this with another four-vector u.
+    */
+    double operator* (const FourVector& other) const;
+
+    /**
     Return four vector addition.
     */
     FourVector operator+ (const FourVector& other) const;
@@ -152,21 +162,6 @@ public:
     Return four vector subtraction.
     */
     FourVector operator- (const FourVector& other) const;
-
-    /**
-    Modify this four vector by adding another one.
-    */
-    FourVector& operator+= (const FourVector& other);
-
-    /**
-    Modify this four vector by subtracting another one.
-    */
-    FourVector& operator-= (const FourVector& other);
-
-    /**
-    Return four vector whose spatial components are negated.
-    */
-    FourVector operator-() const;
 
     /**
     Return four vector with all components multiplied by the given scalar.
@@ -179,14 +174,29 @@ public:
     FourVector operator/ (double scalar) const;
 
     /**
+    Modify this four vector by adding another one.
+    */
+    FourVector& operator+= (const FourVector& other);
+
+    /**
+    Modify this four vector by subtracting another one.
+    */
+    FourVector& operator-= (const FourVector& other);
+
+    /**
+    Multiply all components by the given scalar.
+    */
+    FourVector& operator*= (double scalar);
+
+    /**
+    Divide all components by the given scalar.
+    */
+    FourVector& operator/= (double scalar);
+
+    /**
     Return the four vector u' = L * u.
     */
     FourVector transformedBy (const LorentzBoost& L) const;
-
-    /**
-    Return the contraction of this with another four-vector u.
-    */
-    double operator* (const FourVector& other) const;
 
     /**
     Return true if this four vector has zero contraction with itself.

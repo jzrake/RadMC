@@ -48,12 +48,19 @@ public:
         */
         double thomsonMeanFreePath (UnitVector nhat) const;
 
+        // Wind state variables ===============================================
         double r; // radius (in units of inner boundary)
         double u; // four-velocity, u (in units of c)
         double g; // wind Lorentz factor
         double m; // specific enthalpy mu (in units of c^2, not including rest-mass)
         double p; // gas pressure (relative to density)
         double d; // gas density (equal to 1 / (r^2 u))
+        /**
+        Note: these variables are not all independent; they are computed when
+        the data structure is initialized, so you should treat them as read-
+        only variables. If you a different state then you should create a new
+        one from the wind model, radius and four-velocity.
+        */
 
     private:
         // From wind model ====================================================
@@ -66,7 +73,7 @@ public:
         double innerRadiusCm = 1.0;          // inner radius (cm)
         double leptonsPerBaryon = 1.0;       // Z_{\pm}
         double photonsPerBaryon = 1.0;       // n-gamma / np
-        UnitVector propagationAngle = UnitVector::zhat;
+        UnitVector propagationAngle = UnitVector::zhat; // orientation of flow
         PhysicsConstants P;
     };
 
