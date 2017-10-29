@@ -204,6 +204,11 @@ public:
     FourVector transformedBy (const LorentzBoost& L) const;
 
     /**
+    Modify this four vector by applying the given Lorentz boost.
+    */
+    FourVector& transformBy (const LorentzBoost& L);
+
+    /**
     Return true if this four vector has zero contraction with itself.
     */
     bool isNull (double tol=1e-10) const;

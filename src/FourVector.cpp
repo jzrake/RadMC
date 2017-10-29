@@ -301,6 +301,11 @@ FourVector FourVector::transformedBy (const LorentzBoost& L) const
     return L * (*this);
 }
 
+FourVector& FourVector::transformBy (const LorentzBoost& L)
+{
+    return *this = transformedBy(L);
+}
+
 bool FourVector::isNull (double tol) const
 {
     return std::fabs ((*this) * (*this)) < tol;

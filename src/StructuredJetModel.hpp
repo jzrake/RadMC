@@ -61,4 +61,8 @@ public:
     std::vector<Photon> generatePhotonPath (double initialRadius, double theta);
 
 private:
+    double luminosityPerSteradian = 1e48;
+    double innerRadiusCm = 1e8;
+    double leptonsPerBaryon = 1.0;
+    double photonsPerBaryon = 1e4;
 };

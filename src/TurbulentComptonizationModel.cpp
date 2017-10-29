@@ -17,7 +17,7 @@ public:
     {
         const int numberOfTableEntries = 256;
         const double accuracyParameter = 1e-10;
-        const GaussianQuadrature gauss (8);
+        const GaussianQuadrature gauss(8);
 
         tabulatedCDF = TabulatedFunction::createTabulatedIntegral (
             densityFunction, x0, x1, numberOfTableEntries,
