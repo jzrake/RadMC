@@ -14,7 +14,7 @@ public:
 
     double generate (double F) override
     {
-        return qnt (F);
+        return qnt(F);
     }
 
 private:
@@ -32,7 +32,7 @@ public:
     {
         const int numberOfTableEntries = 1024;
         const double accuracyParameter = 1e-12;
-        const GaussianQuadrature gauss (8);
+        const GaussianQuadrature gauss(8);
 
         tabulatedCDF = TabulatedFunction::createTabulatedIntegral (
             densityFunction, x0, x1, numberOfTableEntries,
@@ -42,7 +42,7 @@ public:
 
     double generate (double F) override
     {
-        return tabulatedCDF.lookupArgumentValue (F);
+        return tabulatedCDF.lookupArgumentValue(F);
     }
 
 private:
@@ -150,7 +150,7 @@ void RandomVariable::outputDistribution (std::ostream& stream, int numberOfSampl
 
     for (auto& x : samples)
     {
-        x = functionOfX (x);
+        x = functionOfX(x);
         xbar += x;
     }
 

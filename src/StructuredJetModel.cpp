@@ -60,7 +60,7 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
 
     photon.position = FourVector::spaceLikeInDirection (r, rhat);
     photon.momentum = FourVector::nullWithUnitVector (UnitVector::sampleIsotropic());
-    photon.momentum *= photonEnergy.sample();
+    photon.momentum *= 3 * photonEnergy.sample();
     photon.momentum.transformBy(u);
 
     return photon;
@@ -71,7 +71,7 @@ StructuredJetModel::Electron StructuredJetModel::generateElectron (const Photon&
 {
     auto sops = ScatteringOperations();
     double uth = std::sqrt (3. * state.temperature()); // TODO: properly sample a Maxwellian here
-    return sops.sampleScatteredParticles (state.fourVelocity(), photon.momentum, uth);
+    return sops.sampleScatteredParticlesInFrame (state.fourVelocity(), photon.momentum, uth);
 }
 
 RelativisticWind::WindState StructuredJetModel::sampleWindSpherical (double r, double theta) const

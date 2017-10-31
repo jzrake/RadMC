@@ -24,7 +24,7 @@ FourVector ScatteringOperations::sampleScatteredParticles (FourVector k, double 
     return FourVector::fromBetaAndUnitVector (v, nhat);
 }
 
-FourVector ScatteringOperations::sampleScatteredParticles (FourVector restFrame, FourVector k, double u) const
+FourVector ScatteringOperations::sampleScatteredParticlesInFrame (FourVector restFrame, FourVector k, double u) const
 {
     LorentzBoost L (restFrame);
 
@@ -62,4 +62,23 @@ FourVector ScatteringOperations::comptonScatter (FourVector& photon, FourVector&
     return dp;
 }
 
+std::vector<FourVector> ScatteringOperations::comptonize (double temperature, int scatterings) const
+{
+    auto path = std::vector<FourVector>();
+    auto photon = FourVector::nullWithUnitVector (UnitVector::sampleIsotropic());
+
+    double kT = temperature;
+    double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+    auto pdf = Distributions::makeMaxwellian (kT, Distributions::Pdf);
+    auto electronGammaBeta = RandomVariable (RandomVariable::fromPdf (pdf, urms * 0.01, urms * 10));        
+
+    for (int n = 0; n < scatterings; ++n)
+    {
+        const double uth = electronGammaBeta.sample();
+        FourVector electron = sampleScatteredParticles (photon, uth);
+        comptonScatter (photon, electron);
+        path.push_back (photon);
+    }
+    return path;
+}
 

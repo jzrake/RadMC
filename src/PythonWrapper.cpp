@@ -8,6 +8,7 @@
 #include "RichardsonCascade.hpp"
 #include "TurbulentComptonizationModel.hpp"
 #include "StructuredJetModel.hpp"
+#include "ScatteringOperations.hpp"
 
 
 
@@ -32,6 +33,13 @@ PYBIND11_MODULE (radmc, m)
     .def_property_readonly ("z", [] (const FourVector& self) { return self[3]; })
     .def_property_readonly ("radius", [] (const FourVector& self) { return self.radius(); })
     .def_property_readonly ("theta", [] (const FourVector& self) { return self.theta(); });
+
+    py::class_<ScatteringOperations> (m, "ScatteringOperations")
+    .def (py::init<>())
+    .def ("sample_scattered_particles", &ScatteringOperations::sampleScatteredParticles)
+    .def ("sample_scattered_particles_in_frame", &ScatteringOperations::sampleScatteredParticlesInFrame)
+    .def ("compton_scatter", &ScatteringOperations::comptonScatter)
+    .def ("comptonize", &ScatteringOperations::comptonize);
 
 
     // ========================================================================

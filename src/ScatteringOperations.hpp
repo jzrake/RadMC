@@ -22,7 +22,7 @@ public:
     u) and isotropic in the frame moving with the four velocity indicated by
     the restFrame argument.
     */
-    FourVector sampleScatteredParticles (FourVector restFrame, FourVector k, double u) const;
+    FourVector sampleScatteredParticlesInFrame (FourVector restFrame, FourVector k, double u) const;
 
     /**
     Perform a Compton scattering operation between a photon and electron with
@@ -30,6 +30,11 @@ public:
     */
     FourVector comptonScatter (FourVector& photon, FourVector& electron) const;
 
-
-private:
+    /**
+    Sample a photon of the given temperature, and then use a one-zone
+    approximation to scatter it the given number of times in a thermal,
+    isotropic electron gas of the same temperature. Return the history
+    of photon energies.
+    */
+    std::vector<FourVector> comptonize (double temperature, int scatterings) const;
 };
