@@ -53,7 +53,7 @@ public:
         propagation angle set by the user.
         */
         FourVector fourVelocity() const;
-        
+
         // Wind state variables ===============================================
         double r; // radius (in units of inner boundary)
         double u; // four-velocity, u (in units of c)

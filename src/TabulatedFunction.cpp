@@ -28,7 +28,7 @@ TabulatedFunction::TabulatedFunction (double x0, double x1, int numberOfBins, Bi
             }
             case useEqualBinWidthsLogarithmic:
             {
-                xdata.push_back (x0 * std::pow (x1 / x0, double (n) / numberOfBins));
+                xdata.push_back (x0 * std::pow (x1 / x0, double(n) / numberOfBins));
                 break;
             }
             default:
@@ -36,7 +36,7 @@ TabulatedFunction::TabulatedFunction (double x0, double x1, int numberOfBins, Bi
                 throw std::runtime_error ("invalid bin spacing mode");
             }
         }
-        ydata.push_back (0);
+        ydata.push_back(0);
     }
 }
 
@@ -282,11 +282,7 @@ double TabulatedFunction::lookupFunctionValue (double x) const
             case useArbitraryBinSpacing:
             case useEqualBinMasses:
             {
-                if (x == xdata.front())
-                {
-                    return 1;
-                }
-
+                if (x == xdata.front()) return 1;
                 auto lower = std::lower_bound (xdata.begin(), xdata.end(), x);
                 return lower - xdata.begin();
             }
@@ -300,7 +296,10 @@ double TabulatedFunction::lookupFunctionValue (double x) const
             {
                 double L0 = std::log (xdata.front());
                 double L1 = std::log (xdata.back());
-                return 1 + int ((std::log(x) - L0) / (L1 - L0) * (xdata.size() - 1));
+                double L = std::log(x);
+                if (L == L0) return 1;
+                if (L == L1) return xdata.size() - 1;
+                return 1 + int ((L - L0) / (L1 - L0) * (xdata.size() - 1));
             }
         }
     };
@@ -308,7 +307,7 @@ double TabulatedFunction::lookupFunctionValue (double x) const
     int n = findBinIndex();
 
     if (n <= 0 || xdata.size() <= n)
-        throw std::runtime_error ("TabulatedFunction got out-of-range x value");
+        throw std::runtime_error ("TabulatedFunction got out-of-range x value " + std::to_string(x));
 
     double xa = xdata[n - 1];
     double xb = xdata[n];
@@ -332,7 +331,6 @@ double TabulatedFunction::lookupArgumentValue (double y) const
                 {
                     return 1;
                 }
-
                 auto lower = std::lower_bound (ydata.begin(), ydata.end(), y);
                 return lower - ydata.begin();
             }
@@ -349,7 +347,7 @@ double TabulatedFunction::lookupArgumentValue (double y) const
 
     if (n <= 0 || ydata.size() <= n)
     {
-        throw std::runtime_error ("TabulatedFunction got out-of-range y value");
+        throw std::runtime_error ("TabulatedFunction got out-of-range y value " + std::to_string(y));
     }
 
     double xa = xdata[n - 1];

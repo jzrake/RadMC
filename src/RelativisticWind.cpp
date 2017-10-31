@@ -1,3 +1,4 @@
+#include <iostream>
 #include <cmath>
 #include "RelativisticWind.hpp"
 
@@ -24,8 +25,8 @@ adiabaticIndex (wind.adiabaticIndex)
     const double s0 = p0 / std::pow (d0, gm);
 
     d = f0 / (r * r * u);
-    m = p / d * gm / (gm - 1);
     p = std::pow (d, gm) * s0;
+    m = p / d * gm / (gm - 1);
     g = std::sqrt (1 + u * u);
 }
 
@@ -104,18 +105,15 @@ RelativisticWind::WindState RelativisticWind::integrate (double outerRadius) con
 
 std::vector<RelativisticWind::WindState> RelativisticWind::integrate (std::vector<double> radius) const
 {
-    if (radius.empty())
-    {
-        return std::vector<WindState>();
-    }
     auto solution = std::vector<WindState>();
 
     solver.setValues (initialFourVelocity, 1.0);
-    solver.integrate (radius[0]);
+    solver.integrate (radius.empty() ? 0.0 : radius[0]);
 
     for (int i = 0; i < radius.size(); ++i)
     {
         solver.integrate (radius[i]);
+
         const double r = solver.getT();
         const double u = solver.getY();
         solution.push_back (WindState (*this, r, u));
@@ -156,5 +154,6 @@ void RelativisticWind::resetSolverFunction()
 
         return du;
     };
+    solver.setTolerance (1e-10);
     solver.setFunction (udot);
 }

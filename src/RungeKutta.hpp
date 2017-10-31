@@ -31,7 +31,10 @@ public:
     /** Return the current y value */
     double getY() const;
 
-    /** Integrate up to the value t. */
+    /**
+    Integrate up to the value t. This sets the internal t and y values to t
+    and y(t).
+    */
     double integrate (double t);
 
     /**

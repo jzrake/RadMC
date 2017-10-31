@@ -1,5 +1,6 @@
 #pragma once
 #include "FourVector.hpp"
+#include "TabulatedFunction.hpp"
 #include "RelativisticWind.hpp"
 
 
@@ -8,6 +9,21 @@
 class StructuredJetModel
 {
 public:
+
+    struct Config
+    {
+        int tableResolutionRadius = 256;
+        int tableResolutionTheta = 256;
+        double outermostRadius = 1e4;
+        double jetOpeningAngle = 0.1;
+        double jetStructureExponent = 1.0;
+        double specificWindPower = 1e2;
+        double luminosityPerSteradian = 1e48;
+        double innerRadiusCm = 1e8;
+        double leptonsPerBaryon = 1.0;
+        double photonsPerBaryon = 1e4;
+    };
+
 
     /**
     The electron data structure for this model.
@@ -32,7 +48,13 @@ public:
     };
 
     /** Constructor for this model. */
-    StructuredJetModel();
+    StructuredJetModel (Config config);
+
+    /**
+    Advance the given photon by first scattering it, and then moving it by a
+    single scattering length (with respect to the initial position).
+    */
+    Photon stepPhoton (const Photon& photon) const;
 
     /**
     Generate a new photon at the given radius and polar angle. The photon is
@@ -46,12 +68,16 @@ public:
     location and propagation direction. The electron energy is sampled from a
     relativistic Maxwellian with the local wind temperature.
     */
-    Electron generateElectron (const Photon& photon) const;
+    Electron generateElectron (const Photon& photon, RelativisticWind::WindState state) const;
 
     /**
     Get the state of the wind at the given coordinates.
     */
-    RelativisticWind::WindState sampleWind (double r, double theta) const;
+    RelativisticWind::WindState sampleWindSpherical (double r, double theta) const;
+
+    /**
+    Get the state of the wind at the given coordinates.
+    */
     RelativisticWind::WindState sampleWind (const FourVector& position) const;
 
     /**
@@ -61,8 +87,13 @@ public:
     std::vector<Photon> generatePhotonPath (double initialRadius, double theta);
 
 private:
-    double luminosityPerSteradian = 1e48;
-    double innerRadiusCm = 1e8;
-    double leptonsPerBaryon = 1.0;
-    double photonsPerBaryon = 1e4;
+    double jetStructureEtaOfTheta (double theta) const;
+    const TabulatedFunction& getTableForTheta (double theta) const;
+    TabulatedFunction tabulateWindSolution (double rmax, double theta) const;
+    void tabulateWindAllAngles (double rmax);
+    RelativisticWind::WindState configureWindState (RelativisticWind::WindState state, FourVector position) const;
+
+    Config config;
+    std::vector<TabulatedFunction> tableOfSolutions;
+    std::vector<double> tableOfThetas;
 };
