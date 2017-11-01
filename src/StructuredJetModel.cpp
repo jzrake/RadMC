@@ -55,8 +55,8 @@ double StructuredJetModel::approximatePhotosphere (double theta) const
 {
     auto physics = PhysicsConstants();
     const double G = jetStructureEtaOfTheta (theta);
-    const double F = config.luminosityPerSteradian / config.specificWindPower;
-    return 0.5 * F * physics.st / physics.c / G / G / config.innerRadiusCm;
+    const double F = config.luminosityPerSteradian / config.specificWindPower / physics.gramToErg (physics.mp);
+    return 0.5 * F * physics.st / physics.c / G / G;
 }
 
 std::vector<StructuredJetModel::Photon> StructuredJetModel::generatePhotonPath (double innerRadius, double theta)
@@ -133,7 +133,8 @@ RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& po
     wind.setSpecificWindPower (eta);
     wind.setInitialFourVelocity (INITIAL_FOUR_VELOCITY);
 
-    try {
+    try
+    {
         const double u = getTableForTheta(t).lookupFunctionValue(r);
         auto state = RelativisticWind::WindState (wind, r, u);
         return configureWindState (state, position);

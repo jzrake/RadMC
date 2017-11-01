@@ -57,10 +57,9 @@ public:
     double sampleTheta() const;
 
     /**
-    Return an approximation of the photospheric radius (in units of the inner
-    boundary, not cm) at the given polar angle. The estimate is very good, as
-    long as the photosphere lies above the radius were the jet reaches its
-    terminal Lorentz factor.
+    Return an approximation of the photospheric radius (in cm) at the given
+    polar angle. The estimate is very good, as long as the photosphere lies
+    above the radius were the jet reaches its terminal Lorentz factor.
     */
     double approximatePhotosphere (double theta) const;
 
