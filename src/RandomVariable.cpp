@@ -39,12 +39,10 @@ public:
             TabulatedFunction::useEqualBinWidthsLinear, gauss,
             accuracyParameter, true);
     }
-
     double generate (double F) override
     {
         return tabulatedCDF.lookupArgumentValue(F);
     }
-
 private:
     TabulatedFunction tabulatedCDF;
 };
@@ -57,6 +55,12 @@ static std::uniform_real_distribution<double> uniform (0, 1);
 static std::uniform_real_distribution<double> uniformPitch (-1, 1);
 static std::uniform_real_distribution<double> uniformAzimuth (0, 2 * M_PI);
 static std::mt19937 engine;
+
+void RandomVariable::seed (std::string seed)
+{
+    std::seed_seq s(seed.begin(), seed.end());
+    engine.seed(s);
+}
 
 double RandomVariable::sampleUniform()
 {

@@ -6,7 +6,35 @@
 #include "TabulatedFunction.hpp"
 #include "Distributions.hpp"
 #include "ScatteringOperations.hpp"
+#include "PhysicsConstants.hpp"
 
+#define INITIAL_FOUR_VELOCITY 2.0
+
+
+
+
+// ========================================================================
+class SamplingScheme : public RandomVariable::SamplingScheme
+{
+public:
+    SamplingScheme (std::function<double (double)> densityFunction, double x0, double x1)
+    {
+        const int numberOfTableEntries = 256;
+        const double accuracyParameter = 1e-8;
+        const GaussianQuadrature gauss(8);
+
+        tabulatedCDF = TabulatedFunction::createTabulatedIntegral (
+            densityFunction, x0, x1, numberOfTableEntries,
+            TabulatedFunction::useEqualBinWidthsLinear, gauss,
+            accuracyParameter, true);
+    }
+    double generate (double F) override
+    {
+        return tabulatedCDF.lookupArgumentValue(F);
+    }
+private:
+    TabulatedFunction tabulatedCDF;
+};
 
 
 
@@ -15,6 +43,20 @@
 StructuredJetModel::StructuredJetModel (Config config) : config (config)
 {
     tabulateWindAllAngles (config.outermostRadius);
+}
+
+double StructuredJetModel::sampleTheta() const
+{
+    auto theta = RandomVariable::uniformOver (0.0, config.jetOpeningAngle * 4);
+    return theta.sample();
+}
+
+double StructuredJetModel::approximatePhotosphere (double theta) const
+{
+    auto physics = PhysicsConstants();
+    const double G = jetStructureEtaOfTheta (theta);
+    const double F = config.luminosityPerSteradian / config.specificWindPower;
+    return 0.5 * F * physics.st / physics.c / G / G / config.innerRadiusCm;
 }
 
 std::vector<StructuredJetModel::Photon> StructuredJetModel::generatePhotonPath (double innerRadius, double theta)
@@ -56,11 +98,11 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
     const auto u = FourVector::fromGammaBetaAndUnitVector (state.u, rhat);
 
     const double kT = state.temperature();
-    auto photonEnergy = RandomVariable::diracDelta (kT);
+    auto photonEnergy = RandomVariable::diracDelta (3 * kT);
 
     photon.position = FourVector::spaceLikeInDirection (r, rhat);
     photon.momentum = FourVector::nullWithUnitVector (UnitVector::sampleIsotropic());
-    photon.momentum *= 3 * photonEnergy.sample();
+    photon.momentum *= photonEnergy.sample();
     photon.momentum.transformBy(u);
 
     return photon;
@@ -69,8 +111,9 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
 StructuredJetModel::Electron StructuredJetModel::generateElectron (const Photon& photon,
     RelativisticWind::WindState state) const
 {
+    const double uth = sampleElectronGammaBeta(state.temperature());
+
     auto sops = ScatteringOperations();
-    double uth = std::sqrt (3. * state.temperature()); // TODO: properly sample a Maxwellian here
     return sops.sampleScatteredParticlesInFrame (state.fourVelocity(), photon.momentum, uth);
 }
 
@@ -88,7 +131,7 @@ RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& po
 
     auto wind = RelativisticWind();
     wind.setSpecificWindPower (eta);
-    wind.setInitialFourVelocity (2.0);
+    wind.setInitialFourVelocity (INITIAL_FOUR_VELOCITY);
 
     try {
         const double u = getTableForTheta(t).lookupFunctionValue(r);
@@ -114,13 +157,25 @@ double StructuredJetModel::jetStructureEtaOfTheta (double theta) const
     return config.specificWindPower * std::exp (-Q);
 }
 
+double StructuredJetModel::sampleElectronGammaBeta (double kT) const
+{
+    double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
+
+    if (false)
+    {
+        auto pdf = Distributions::makeMaxwellian (kT, Distributions::Pdf);
+        auto electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms * 0.01, urms * 20));
+        return electronGammaBeta.sample();
+    }
+    return urms;
+}
+
 const TabulatedFunction& StructuredJetModel::getTableForTheta (double theta) const
 {
     if (theta >= tableOfThetas.back())
     {
         throw std::runtime_error ("theta value " + std::to_string (theta) + " is outside tabulated solution");
     }
-
     const int thetaBin = tableOfThetas.size() * theta / tableOfThetas.back();
     assert (0 <= thetaBin && thetaBin < tableOfSolutions.size());
 

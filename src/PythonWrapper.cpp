@@ -25,6 +25,8 @@ PYBIND11_MODULE (radmc, m)
     py::bind_vector<std::vector<double>> (m, "std::vector<double>", py::module_local (true));
     py::bind_vector<std::vector<FourVector>> (m, "std::vector<FourVector>", py::module_local (true));
 
+    m.def ("seed", RandomVariable::seed);
+
     py::class_<FourVector> (m, "FourVector")
     .def (py::init<double, double, double, double>())
     .def_property_readonly ("t", [] (const FourVector& self) { return self[0]; })
@@ -133,6 +135,8 @@ PYBIND11_MODULE (radmc, m)
 
     auto sjm = py::class_<SJM> (m, "StructuredJetModel", py::dynamic_attr())
     .def (py::init<SJM::Config>())
+    .def ("sample_theta", &SJM::sampleTheta)
+    .def ("approximate_photosphere", &SJM::approximatePhotosphere)
     .def ("generate_photon", &SJM::generatePhoton)
     .def ("step_photon", &SJM::stepPhoton)
     .def ("sample_wind", &SJM::sampleWind)

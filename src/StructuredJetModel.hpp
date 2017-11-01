@@ -51,6 +51,20 @@ public:
     StructuredJetModel (Config config);
 
     /**
+    Get a uniformly distributed polar angle between 0 and the tabulated polar
+    region.
+    */
+    double sampleTheta() const;
+
+    /**
+    Return an approximation of the photospheric radius (in units of the inner
+    boundary, not cm) at the given polar angle. The estimate is very good, as
+    long as the photosphere lies above the radius were the jet reaches its
+    terminal Lorentz factor.
+    */
+    double approximatePhotosphere (double theta) const;
+
+    /**
     Advance the given photon by first scattering it, and then moving it by a
     single scattering length (with respect to the initial position).
     */
@@ -88,6 +102,7 @@ public:
 
 private:
     double jetStructureEtaOfTheta (double theta) const;
+    double sampleElectronGammaBeta (double kT) const;
     const TabulatedFunction& getTableForTheta (double theta) const;
     TabulatedFunction tabulateWindSolution (double rmax, double theta) const;
     void tabulateWindAllAngles (double rmax);

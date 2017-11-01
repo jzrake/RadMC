@@ -17,6 +17,8 @@ public:
         virtual ~SamplingScheme() {}
     };
 
+    static void seed (std::string seed);
+
     /**
     Sample the uniform random variable between 0 and 1 using the global RNG.
     */
