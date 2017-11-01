@@ -8,8 +8,6 @@
 #include "ScatteringOperations.hpp"
 #include "PhysicsConstants.hpp"
 
-#define INITIAL_FOUR_VELOCITY 2.0
-
 
 
 
@@ -131,7 +129,7 @@ RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& po
 
     auto wind = RelativisticWind();
     wind.setSpecificWindPower (eta);
-    wind.setInitialFourVelocity (INITIAL_FOUR_VELOCITY);
+    wind.setInitialFourVelocity (1.0);
 
     try
     {
@@ -189,7 +187,8 @@ TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double 
     const double eta = jetStructureEtaOfTheta (theta);
     auto wind = RelativisticWind();
     wind.setSpecificWindPower (eta);
-    wind.setInitialFourVelocity (2.0);
+    wind.setInitialMachNumber (1.5);
+    // wind.setInitialFourVelocity (2.0);
 
     auto table = TabulatedFunction (1.0, rmax, N, TabulatedFunction::useEqualBinWidthsLogarithmic);
     auto solution = wind.integrate (table.getDataX());

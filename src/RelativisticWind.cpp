@@ -92,6 +92,16 @@ RelativisticWind& RelativisticWind::setInitialFourVelocity (double u0)
     return *this;
 }
 
+RelativisticWind& RelativisticWind::setInitialMachNumber (double M)
+{
+    const double eta = specificWindPower;
+    const double gm1 = adiabaticIndex - 1;
+    const double M2 = M * M;
+    const double g = (M2 * gm1 + std::sqrt (M2 * M2 * gm1 * gm1 + 4 * (1 - M2 * gm1) * eta * eta)) / 2 / eta;
+    const double u = std::sqrt (g * g - 1);
+    return setInitialFourVelocity(u);
+}
+
 RelativisticWind::WindState RelativisticWind::integrate (double outerRadius) const
 {
     solver.setValues (initialFourVelocity, 1.0);
@@ -116,7 +126,18 @@ std::vector<RelativisticWind::WindState> RelativisticWind::integrate (std::vecto
 
         const double r = solver.getT();
         const double u = solver.getY();
-        solution.push_back (WindState (*this, r, u));
+        const auto S = WindState (*this, r, u);
+
+        solution.push_back (S);
+
+        if (S.m < 0.0)
+        {
+            throw std::runtime_error (
+                "Wind solution has negative enthalpy, mu = "
+                + std::to_string (S.m)
+                + " at r = "
+                + std::to_string (S.r));
+        }
     }
     return solution;
 }

@@ -93,9 +93,15 @@ public:
     RelativisticWind& setSpecificWindPower (double eta);
 
     /**
-    Set the wind velocity at the inner boundary.
+    Set the wind four-velocity at the inner boundary.
     */
     RelativisticWind& setInitialFourVelocity (double u0);
+
+    /**
+    Set the wind four-velocity at the inner boundary to the given Mach number,
+    M = v / cs.
+    */
+    RelativisticWind& setInitialMachNumber (double M);
 
     /**
     Integrate a wind profile to the given outer radius. The inner radius is
