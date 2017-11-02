@@ -296,6 +296,14 @@ FourVector& FourVector::operator/= (double scalar)
     return *this;
 }
 
+FourVector FourVector::projectedAlong (const UnitVector& nhat) const
+{
+    const double *u = components;
+    double nx, ny, nz;
+    nhat.getCartesianComponents (nx, ny, nz);
+    return FourVector (u[0], u[1] * nx, u[2]* ny, u[3] * nz);
+}
+
 FourVector FourVector::transformedBy (const LorentzBoost& L) const
 {
     return L * (*this);

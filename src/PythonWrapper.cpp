@@ -9,6 +9,7 @@
 #include "TurbulentComptonizationModel.hpp"
 #include "StructuredJetModel.hpp"
 #include "ScatteringOperations.hpp"
+#include "PhysicsConstants.hpp"
 
 
 
@@ -35,6 +36,19 @@ PYBIND11_MODULE (radmc, m)
     .def_property_readonly ("z", [] (const FourVector& self) { return self[3]; })
     .def_property_readonly ("radius", [] (const FourVector& self) { return self.radius(); })
     .def_property_readonly ("theta", [] (const FourVector& self) { return self.theta(); });
+
+    py::class_<PhysicsConstants> (m, "PhysicsConstants")
+    .def (py::init<>())
+    .def_readonly ("c", &PhysicsConstants::c)
+    .def_readonly ("k", &PhysicsConstants::k)
+    .def_readonly ("h", &PhysicsConstants::h)
+    .def_readonly ("G", &PhysicsConstants::G)
+    .def_readonly ("e", &PhysicsConstants::e)
+    .def_readonly ("me", &PhysicsConstants::me)
+    .def_readonly ("mp", &PhysicsConstants::mp)
+    .def_readonly ("st", &PhysicsConstants::st)
+    .def ("gram_to_erg", &PhysicsConstants::gramToErg)
+    .def ("gram_to_MeV", &PhysicsConstants::gramToMeV);
 
     py::class_<ScatteringOperations> (m, "ScatteringOperations")
     .def (py::init<>())
@@ -148,6 +162,7 @@ PYBIND11_MODULE (radmc, m)
     .def_readwrite ("table_resolution_theta", &SJM::Config::tableResolutionTheta)
     .def_readwrite ("outermost_radius", &SJM::Config::outermostRadius)
     .def_readwrite ("jet_opening_angle", &SJM::Config::jetOpeningAngle)
+    .def_readwrite ("jet_polar_boundary", &SJM::Config::jetPolarBoundary)
     .def_readwrite ("jet_structure_exponent", &SJM::Config::jetStructureExponent)
     .def_readwrite ("specific_wind_power", &SJM::Config::specificWindPower)
     .def_readwrite ("luminosity_per_steradian", &SJM::Config::luminosityPerSteradian)
@@ -155,11 +170,11 @@ PYBIND11_MODULE (radmc, m)
     .def_readwrite ("leptons_per_baryon", &SJM::Config::leptonsPerBaryon)
     .def_readwrite ("photons_per_baryon", &SJM::Config::photonsPerBaryon);
 
-
     py::class_<SJM::Photon> (sjm, "Photon")
     .def (py::init<>())
     .def_readwrite ("position", &SJM::Photon::position)
-    .def_readwrite ("momentum", &SJM::Photon::momentum);
+    .def_readwrite ("momentum", &SJM::Photon::momentum)
+    .def ("lag_time", &SJM::Photon::lagTime);
 }
 
 #endif // RADMC_PYTHON

@@ -38,15 +38,27 @@ private:
 
 
 // ========================================================================
+double StructuredJetModel::Photon::lagTime() const
+{
+    PhysicsConstants physics;
+    auto x = position;
+    auto k = momentum.getUnitThreeVector();
+    return (x[0] - x.projectedAlong(k).radius()) / physics.c;
+}
+
+
+
+
+// ========================================================================
 StructuredJetModel::StructuredJetModel (Config config) : config (config)
 {
     tabulateWindAllAngles (config.outermostRadius);
 }
 
-double StructuredJetModel::sampleTheta() const
+double StructuredJetModel::sampleTheta (double fraction) const
 {
-    auto theta = RandomVariable::uniformOver (0.0, config.jetOpeningAngle * 4);
-    return theta.sample();
+    auto mu = RandomVariable::uniformOver (std::cos (fraction * config.jetPolarBoundary), 1.0);
+    return std::acos (mu.sample());
 }
 
 double StructuredJetModel::approximatePhotosphere (double theta) const
@@ -131,23 +143,9 @@ RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& po
     wind.setSpecificWindPower (eta);
     wind.setInitialFourVelocity (1.0);
 
-    try
-    {
-        const double u = getTableForTheta(t).lookupFunctionValue(r);
-        auto state = RelativisticWind::WindState (wind, r, u);
-        return configureWindState (state, position);
-    }
-    catch (const std::exception& e)
-    {
-        std::cout
-        << "Warning: sampleWind is out of tabulated bounds at r = "
-        << r
-        << " theta = "
-        << t << ". Falling back to exact integration, which is slow."
-        << std::endl;
-
-        return configureWindState (wind.integrate(r), position);
-    }
+    const double u = getTableForTheta(t).lookupFunctionValue(r);
+    auto state = RelativisticWind::WindState (wind, r, u);
+    return configureWindState (state, position);
 }
 
 double StructuredJetModel::jetStructureEtaOfTheta (double theta) const
@@ -173,7 +171,7 @@ const TabulatedFunction& StructuredJetModel::getTableForTheta (double theta) con
 {
     if (theta >= tableOfThetas.back())
     {
-        throw std::runtime_error ("theta value " + std::to_string (theta) + " is outside tabulated solution");
+        throw std::runtime_error ("theta = " + std::to_string (theta) + " is outside tabulated solution");
     }
     const int thetaBin = tableOfThetas.size() * theta / tableOfThetas.back();
     assert (0 <= thetaBin && thetaBin < tableOfSolutions.size());
@@ -187,8 +185,7 @@ TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double 
     const double eta = jetStructureEtaOfTheta (theta);
     auto wind = RelativisticWind();
     wind.setSpecificWindPower (eta);
-    wind.setInitialMachNumber (1.5);
-    // wind.setInitialFourVelocity (2.0);
+    wind.setInitialFourVelocity (1.0);
 
     auto table = TabulatedFunction (1.0, rmax, N, TabulatedFunction::useEqualBinWidthsLogarithmic);
     auto solution = wind.integrate (table.getDataX());
@@ -203,11 +200,10 @@ TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double 
 void StructuredJetModel::tabulateWindAllAngles (double rmax)
 {
     const int N = config.tableResolutionTheta;
-    const double thetaMax = config.jetOpeningAngle * 4;
 
     for (int n = 0; n < N; ++n)
     {
-        const double theta = double(n) / (N - 1) * thetaMax;
+        const double theta = double(n) / (N - 1) * config.jetPolarBoundary;
 
         tableOfSolutions.push_back (tabulateWindSolution (rmax, theta));
         tableOfThetas.push_back (theta);

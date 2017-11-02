@@ -199,6 +199,12 @@ public:
     FourVector& operator/= (double scalar);
 
     /**
+    Return a four-vector which is this one projected onto the given unit
+    vector.
+    */
+    FourVector projectedAlong (const UnitVector& nhat) const;
+
+    /**
     Return the four vector u' = L * u.
     */
     FourVector transformedBy (const LorentzBoost& L) const;

@@ -16,6 +16,7 @@ public:
         int tableResolutionTheta = 256;
         double outermostRadius = 1e4;
         double jetOpeningAngle = 0.1;
+        double jetPolarBoundary = 0.5;
         double jetStructureExponent = 1.0;
         double specificWindPower = 1e2;
         double luminosityPerSteradian = 1e48;
@@ -43,6 +44,16 @@ public:
     {
     public:
         Photon (FourVector momentum=FourVector()) : momentum (momentum) {}
+
+        /**
+        Return the difference in time (seconds) between the moment a distant
+        observer receives this photon, and the time when he would receive a
+        light pulse which left the origin at t=0. The observer is located
+        along the photon's propagation vector, relative to the origin, not the
+        photon position vector.
+        */
+        double lagTime() const;
+
         FourVector position;
         FourVector momentum;
     };
@@ -51,10 +62,11 @@ public:
     StructuredJetModel (Config config);
 
     /**
-    Get a uniformly distributed polar angle between 0 and the tabulated polar
-    region.
+    Return a theta value, sampled uniformly over the given fraction of solid
+    angle covered by the tabulated solution. Setting the fraction too close to
+    1.0 may result in many photons diffusing out the sides of the jet.
     */
-    double sampleTheta() const;
+    double sampleTheta (double fraction) const;
 
     /**
     Return an approximation of the photospheric radius (in cm) at the given
