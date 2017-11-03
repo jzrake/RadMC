@@ -38,12 +38,12 @@ private:
 
 
 // ========================================================================
-double StructuredJetModel::Photon::lagTime() const
+double StructuredJetModel::Photon::lagTime (double lengthUnits) const
 {
     PhysicsConstants physics;
     auto x = position;
     auto k = momentum.getUnitThreeVector();
-    return (x[0] - x.projectedAlong(k).radius()) / physics.c;
+    return (x[0] - x.projectedAlong(k).radius()) * lengthUnits / physics.c;
 }
 
 
@@ -63,23 +63,45 @@ double StructuredJetModel::sampleTheta (double fraction) const
 
 double StructuredJetModel::approximatePhotosphere (double theta) const
 {
-    auto physics = PhysicsConstants();
-    const double G = jetStructureEtaOfTheta (theta);
-    const double F = config.luminosityPerSteradian / config.specificWindPower / physics.gramToErg (physics.mp);
-    return 0.5 * F * physics.st / physics.c / G / G;
+    const double eta = jetStructureEtaOfTheta (theta);
+    const double eff = jetStructureEffOfTheta (theta);
+    const double Ndot = eff / physics.mp / physics.c / physics.c;
+    return 0.5 * Ndot * physics.st / physics.c * std::pow (eta, -2);
 }
 
-std::vector<StructuredJetModel::Photon> StructuredJetModel::generatePhotonPath (double innerRadius, double theta)
+double StructuredJetModel::approximateLagTime (double theta) const
 {
-    auto photon = generatePhoton (innerRadius, theta);
-    auto path = std::vector<StructuredJetModel::Photon>();
+    const double G = jetStructureEtaOfTheta (theta);
+    const double r = approximatePhotosphere (theta);
+    return 0.5 * r / G / G / physics.c;
+}
 
-    while (photon.position.radius() < 1e4)
+double StructuredJetModel::totalLuminosity() const
+{
+    auto L = [this] (double theta)
     {
-        std::cout << "[StructuredJetModel] " << ": " << "r = " << photon.position.radius() << std::endl;
-        path.push_back (photon = stepPhoton (photon));
+        const double eta = jetStructureEtaOfTheta (theta);
+        const double eff = jetStructureEffOfTheta (theta);
+        return 2 * M_PI * eta * eff * std::sin (theta);
+    };
+    const GaussianQuadrature gauss(8);
+    return gauss.computeDefiniteIntegral (L, 0.0, M_PI, 1e-8);
+}
+
+double StructuredJetModel::fluidPropagationTimeToRadius (double r, double theta) const
+{
+    // TODO: Improve estimate here (account for acceleration)
+
+    if (r < jetStructureEtaOfTheta (theta))
+    {
+        throw std::runtime_error ("The radius is less than the saturation radius; "
+            "estimate of propagation time is wrong");
     }
-    return path;
+    const auto& table = getTableForTheta (theta);
+    const double u = table.lookupFunctionValue(r);
+    const double v = u / std::sqrt (1 + u * u);
+    const double t = r / v * config.innerRadiusCm / physics.c;
+    return t;
 }
 
 StructuredJetModel::Photon StructuredJetModel::stepPhoton (const StructuredJetModel::Photon& photon0) const
@@ -101,19 +123,20 @@ StructuredJetModel::Photon StructuredJetModel::stepPhoton (const StructuredJetMo
 
 StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double theta) const
 {
-    auto photon = Photon();
     const double phi = RandomVariable::sampleUniformAzimuth();
     const auto state = sampleWindSpherical (r, theta);
     const auto rhat = UnitVector (std::cos (theta), phi); // wind propagation angle
     const auto u = FourVector::fromGammaBetaAndUnitVector (state.u, rhat);
 
     const double kT = state.temperature();
-    auto photonEnergy = RandomVariable::diracDelta (3 * kT);
+    const auto photonEnergy = RandomVariable::diracDelta (3 * kT);
 
+    auto photon = Photon();
     photon.position = FourVector::spaceLikeInDirection (r, rhat);
+    photon.position[0] = fluidPropagationTimeToRadius (r, theta) * physics.c / config.innerRadiusCm;
     photon.momentum = FourVector::nullWithUnitVector (UnitVector::sampleIsotropic());
     photon.momentum *= photonEnergy.sample();
-    photon.momentum.transformBy(u);
+    photon.momentum.transformBy(-u);
 
     return photon;
 }
@@ -122,8 +145,7 @@ StructuredJetModel::Electron StructuredJetModel::generateElectron (const Photon&
     RelativisticWind::WindState state) const
 {
     const double uth = sampleElectronGammaBeta(state.temperature());
-
-    auto sops = ScatteringOperations();
+    const auto sops = ScatteringOperations();
     return sops.sampleScatteredParticlesInFrame (state.fourVelocity(), photon.momentum, uth);
 }
 
@@ -135,15 +157,10 @@ RelativisticWind::WindState StructuredJetModel::sampleWindSpherical (double r, d
 
 RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& position) const
 {
-    const double eta = jetStructureEtaOfTheta (position.theta());
     const double r = position.radius();
     const double t = position.theta();
-
-    auto wind = RelativisticWind();
-    wind.setSpecificWindPower (eta);
-    wind.setInitialFourVelocity (1.0);
-
     const double u = getTableForTheta(t).lookupFunctionValue(r);
+    auto wind = makeWindSolver(t);
     auto state = RelativisticWind::WindState (wind, r, u);
     return configureWindState (state, position);
 }
@@ -151,7 +168,14 @@ RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& po
 double StructuredJetModel::jetStructureEtaOfTheta (double theta) const
 {
     const double Q = std::pow (theta / config.jetOpeningAngle, config.jetStructureExponent);
-    return config.specificWindPower * std::exp (-Q);
+    return std::exp (-Q) * config.specificWindPower;
+}
+
+double StructuredJetModel::jetStructureEffOfTheta (double theta) const
+{
+    // const double Q = std::pow (theta / config.jetOpeningAngle, config.jetStructureExponent);
+    // return std::exp (-Q) * config.luminosityPerSteradian / config.specificWindPower;
+    return config.luminosityPerSteradian / config.specificWindPower;
 }
 
 double StructuredJetModel::sampleElectronGammaBeta (double kT) const
@@ -182,12 +206,8 @@ const TabulatedFunction& StructuredJetModel::getTableForTheta (double theta) con
 TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double theta) const
 {
     const int N = config.tableResolutionRadius;
-    const double eta = jetStructureEtaOfTheta (theta);
-    auto wind = RelativisticWind();
-    wind.setSpecificWindPower (eta);
-    wind.setInitialFourVelocity (1.0);
-
     auto table = TabulatedFunction (1.0, rmax, N, TabulatedFunction::useEqualBinWidthsLogarithmic);
+    auto wind = makeWindSolver (theta);
     auto solution = wind.integrate (table.getDataX());
 
     for (int i = 0; i < table.size(); ++i)
@@ -204,7 +224,6 @@ void StructuredJetModel::tabulateWindAllAngles (double rmax)
     for (int n = 0; n < N; ++n)
     {
         const double theta = double(n) / (N - 1) * config.jetPolarBoundary;
-
         tableOfSolutions.push_back (tabulateWindSolution (rmax, theta));
         tableOfThetas.push_back (theta);
     }
@@ -213,10 +232,20 @@ void StructuredJetModel::tabulateWindAllAngles (double rmax)
 RelativisticWind::WindState StructuredJetModel::configureWindState (RelativisticWind::WindState state, FourVector position) const
 {
     const double eta = jetStructureEtaOfTheta (position.theta());
-    state.setLuminosityPerSteradian (config.luminosityPerSteradian * eta);
+    const double eff = jetStructureEffOfTheta (position.theta());
+    state.setLuminosityPerSteradian (eta * eff);
     state.setInnerRadiusCm (config.innerRadiusCm);
     state.setLeptonsPerBaryon (config.leptonsPerBaryon);
     state.setPhotonsPerBaryon (config.photonsPerBaryon);
     state.setPropagationAngle (position.getUnitThreeVector());
     return state;
+}
+
+RelativisticWind StructuredJetModel::makeWindSolver (double theta) const
+{
+    const double eta = jetStructureEtaOfTheta (theta);
+    auto wind = RelativisticWind();
+    wind.setSpecificWindPower (eta);
+    wind.setInitialFourVelocity (1.0);
+    return wind;
 }

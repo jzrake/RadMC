@@ -2,6 +2,7 @@
 #include "FourVector.hpp"
 #include "TabulatedFunction.hpp"
 #include "RelativisticWind.hpp"
+#include "PhysicsConstants.hpp"
 
 
 
@@ -24,7 +25,6 @@ public:
         double leptonsPerBaryon = 1.0;
         double photonsPerBaryon = 1e4;
     };
-
 
     /**
     The electron data structure for this model.
@@ -50,9 +50,10 @@ public:
         observer receives this photon, and the time when he would receive a
         light pulse which left the origin at t=0. The observer is located
         along the photon's propagation vector, relative to the origin, not the
-        photon position vector.
+        photon position vector. The parameter lengthUnits is the radius in cm
+        when position.radius() == 1.
         */
-        double lagTime() const;
+        double lagTime (double lengthUnits) const;
 
         FourVector position;
         FourVector momentum;
@@ -74,6 +75,24 @@ public:
     above the radius were the jet reaches its terminal Lorentz factor.
     */
     double approximatePhotosphere (double theta) const;
+
+    /**
+    Return an approximate lag time (in seconds) for emission into the given
+    polar angle.
+    */
+    double approximateLagTime (double theta) const;
+
+    /**
+    Return the total luminosity (in erg) for this jet structure.
+    */
+    double totalLuminosity() const;
+
+    /**
+    Return the time (in seconds, source frame) for a fluid element to propagte
+    from the wind inner boundary to the given radius. NOTE: the input radius
+    is in units of the inner boundary, not in cm.
+    */
+    double fluidPropagationTimeToRadius (double r, double theta) const;
 
     /**
     Advance the given photon by first scattering it, and then moving it by a
@@ -105,21 +124,18 @@ public:
     */
     RelativisticWind::WindState sampleWind (const FourVector& position) const;
 
-    /**
-    Evolve a single photon from the given inner radius until it escapes to
-    infinity.
-    */
-    std::vector<Photon> generatePhotonPath (double initialRadius, double theta);
-
 private:
     double jetStructureEtaOfTheta (double theta) const;
+    double jetStructureEffOfTheta (double theta) const;
     double sampleElectronGammaBeta (double kT) const;
     const TabulatedFunction& getTableForTheta (double theta) const;
     TabulatedFunction tabulateWindSolution (double rmax, double theta) const;
     void tabulateWindAllAngles (double rmax);
     RelativisticWind::WindState configureWindState (RelativisticWind::WindState state, FourVector position) const;
+    RelativisticWind makeWindSolver (double theta) const;
 
     Config config;
     std::vector<TabulatedFunction> tableOfSolutions;
     std::vector<double> tableOfThetas;
+    PhysicsConstants physics;
 };

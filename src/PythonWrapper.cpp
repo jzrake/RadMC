@@ -30,10 +30,10 @@ PYBIND11_MODULE (radmc, m)
 
     py::class_<FourVector> (m, "FourVector")
     .def (py::init<double, double, double, double>())
-    .def_property_readonly ("t", [] (const FourVector& self) { return self[0]; })
-    .def_property_readonly ("x", [] (const FourVector& self) { return self[1]; })
-    .def_property_readonly ("y", [] (const FourVector& self) { return self[2]; })
-    .def_property_readonly ("z", [] (const FourVector& self) { return self[3]; })
+    .def_property ("t", [] (const FourVector& self) { return self[0]; }, [] (FourVector& self, double a) { self[0] = a; })
+    .def_property ("x", [] (const FourVector& self) { return self[1]; }, [] (FourVector& self, double a) { self[1] = a; })
+    .def_property ("y", [] (const FourVector& self) { return self[2]; }, [] (FourVector& self, double a) { self[2] = a; })
+    .def_property ("z", [] (const FourVector& self) { return self[3]; }, [] (FourVector& self, double a) { self[3] = a; })
     .def_property_readonly ("radius", [] (const FourVector& self) { return self.radius(); })
     .def_property_readonly ("theta", [] (const FourVector& self) { return self.theta(); });
 
@@ -47,6 +47,7 @@ PYBIND11_MODULE (radmc, m)
     .def_readonly ("me", &PhysicsConstants::me)
     .def_readonly ("mp", &PhysicsConstants::mp)
     .def_readonly ("st", &PhysicsConstants::st)
+    .def_readonly ("pc", &PhysicsConstants::pc)
     .def ("gram_to_erg", &PhysicsConstants::gramToErg)
     .def ("gram_to_MeV", &PhysicsConstants::gramToMeV);
 
@@ -144,13 +145,15 @@ PYBIND11_MODULE (radmc, m)
     // StructuredJetModel
     // ========================================================================
     using SJM = StructuredJetModel;
-
     py::bind_vector<std::vector<SJM::Photon>> (m, "std::vector<StructuredJetModel.Photon>", py::module_local (true));
 
     auto sjm = py::class_<SJM> (m, "StructuredJetModel", py::dynamic_attr())
     .def (py::init<SJM::Config>())
     .def ("sample_theta", &SJM::sampleTheta)
     .def ("approximate_photosphere", &SJM::approximatePhotosphere)
+    .def ("approximate_lag_time", &SJM::approximateLagTime)
+    .def ("total_luminosity", &SJM::totalLuminosity)
+    .def ("fluid_propagation_time_to_radius", &SJM::fluidPropagationTimeToRadius)
     .def ("generate_photon", &SJM::generatePhoton)
     .def ("step_photon", &SJM::stepPhoton)
     .def ("sample_wind", &SJM::sampleWind)
