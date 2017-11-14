@@ -76,6 +76,13 @@ double StructuredJetModel::approximateLagTime (double theta) const
     return 0.5 * r / G / G / physics.c;
 }
 
+double StructuredJetModel::angularLuminosity (double theta) const
+{
+    const double eta = jetStructureEtaOfTheta (theta);
+    const double eff = jetStructureEffOfTheta (theta);
+    return eta * eff;
+}
+
 double StructuredJetModel::totalLuminosity() const
 {
     auto L = [this] (double theta)
@@ -85,7 +92,7 @@ double StructuredJetModel::totalLuminosity() const
         return 2 * M_PI * eta * eff * std::sin (theta);
     };
     const GaussianQuadrature gauss(8);
-    return gauss.computeDefiniteIntegral (L, 0.0, M_PI, 1e-8);
+    return gauss.computeDefiniteIntegral (L, 0.0, M_PI / 2, 1e-8);
 }
 
 double StructuredJetModel::fluidPropagationTimeToRadius (double r, double theta) const
@@ -167,15 +174,17 @@ RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& po
 
 double StructuredJetModel::jetStructureEtaOfTheta (double theta) const
 {
+    if (config.jetStructureExponent == 0) return config.specificWindPower;
     const double Q = std::pow (theta / config.jetOpeningAngle, config.jetStructureExponent);
     return std::exp (-Q) * config.specificWindPower;
 }
 
 double StructuredJetModel::jetStructureEffOfTheta (double theta) const
 {
-    // const double Q = std::pow (theta / config.jetOpeningAngle, config.jetStructureExponent);
-    // return std::exp (-Q) * config.luminosityPerSteradian / config.specificWindPower;
-    return config.luminosityPerSteradian / config.specificWindPower;
+    if (config.jetStructureExponent == 0) return config.luminosityPerSteradian / config.specificWindPower;
+    const double Q = std::pow (theta / config.jetOpeningAngle, config.jetStructureExponent);
+    return std::exp (-Q) * config.luminosityPerSteradian / config.specificWindPower;
+    // return config.luminosityPerSteradian / config.specificWindPower;
 }
 
 double StructuredJetModel::sampleElectronGammaBeta (double kT) const

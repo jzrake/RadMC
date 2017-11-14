@@ -83,7 +83,12 @@ public:
     double approximateLagTime (double theta) const;
 
     /**
-    Return the total luminosity (in erg) for this jet structure.
+    Return the luminosity (erg/s/Sr) at the give polar angle.
+    */
+    double angularLuminosity (double theta) const;
+
+    /**
+    Return the total luminosity (in erg/s) for this jet structure.
     */
     double totalLuminosity() const;
 

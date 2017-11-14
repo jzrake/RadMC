@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import datetime
 import numpy as np
@@ -11,15 +13,15 @@ def make_config():
     config = radmc.StructuredJetModel.Config()
     config.table_resolution_radius = 256
     config.table_resolution_theta = 256
-    config.outermost_radius = 1e6
+    config.outermost_radius = 1e8
     config.jet_opening_angle = 0.3
-    config.jet_polar_boundary = 0.8
-    config.jet_structure_exponent = 1.0
-    config.specific_wind_power = 50
-    config.luminosity_per_steradian = 1e51
+    config.jet_polar_boundary = np.pi / 2
+    config.jet_structure_exponent = 0.0
+    config.specific_wind_power = 24
+    config.luminosity_per_steradian = 1e50
     config.inner_radius_cm = 1e8
     config.leptons_per_baryon = 1.0
-    config.photons_per_baryon = 1e4
+    config.photons_per_baryon = 1e3
     return config
 
 
@@ -59,25 +61,36 @@ class StructuredJetModel(object):
                 if key not in self.file:
                     self.file.create_dataset(key, (0,), maxshape=(None,))
 
+            self.file.create_group("tracks")
+
         self.config = config
         self.model = radmc.StructuredJetModel(config)
         self.photon_cache = []
+        self.tracks_cache = []
         report_model(self.model, config)
 
-    def run_photon(self):
+    def run_photon(self, record_track=False):
+        r0 = self.config.inner_radius_cm
         q = self.model.sample_theta(0.5)
-        r = self.model.approximate_photosphere(q) / self.config.inner_radius_cm * 0.01
+        r = self.model.approximate_photosphere(q) / r0 * 0.01
         p = self.model.generate_photon(r, q)
         n = 0
 
-        while (p.position.radius < self.config.outermost_radius * 0.1
+        track = []
+
+        while (p.position.radius < self.config.outermost_radius * 0.01
             and p.position.theta < self.config.jet_polar_boundary):
             p = self.model.step_photon(p)
             n += 1
 
+            if record_track:
+                track.append(p)
+
         self.photon_cache.append(p)
         self.photon_number += 1
-        r0 = self.config.inner_radius_cm
+
+        if record_track:
+            self.tracks_cache.append(track)
 
         print("photon {} @ q : {:.2f} -> {:.2f} Nscat = {}, final r and E are {:.2e}, {:.2e}, lag = {:.2e}s"
             .format(self.photon_number, q, p.position.theta, n, p.position.radius, p.momentum.t, p.lag_time(r0)))
@@ -98,7 +111,17 @@ class StructuredJetModel(object):
             self.file[key].resize((n1,))
             self.file[key][n0:] = entries[key]
 
+        for track in self.tracks_cache:
+            track_name = "{:06d}".format(len(self.file["tracks"]))
+            track_group = self.file["tracks"].create_group(track_name)
+            track_group['t'] = [p.position.t for p in track]
+            track_group['x'] = [p.position.x for p in track]
+            track_group['y'] = [p.position.y for p in track]
+            track_group['z'] = [p.position.z for p in track]
+            track_group['energy'] = [p.momentum.t for p in track]
+
         self.photon_cache = []
+        self.tracks_cache = []
         print("purged photons, now {} in file".format(n1))
 
     def write_config_to_file(self, config):
@@ -117,7 +140,7 @@ class StructuredJetModel(object):
 
 
 
-class WindProfile(object):
+class WindProperties(object):
 
     def __init__(self):
         config = make_config()
@@ -125,7 +148,7 @@ class WindProfile(object):
         self.model = radmc.StructuredJetModel(config)
         report_model(self.model, config)
 
-    def plot_wind_profile(self):
+    def plot_wind_photospheres(self):
         fig = plt.figure(figsize=[9, 6])
         ax1 = fig.add_subplot(1, 1, 1)
 
@@ -139,11 +162,72 @@ class WindProfile(object):
             lag = self.model.approximate_lag_time(theta)
             ax1.plot(r * cm, [s.u for s in states])
             ax1.scatter([rphot], [uphot], marker='*', c='y', s=200)
-            ax1.text(rphot * 0.75, uphot * 1.25, r"$\delta_t = {:.1e}s$".format(lag))
+            ax1.text(rphot * 0.75, uphot * 1.25, r"$\delta t = {:.1e}s$".format(lag))
+
         ax1.set_xscale('log')
         ax1.set_yscale('log')
         ax1.set_xlabel(r"radius, cm")
         ax1.set_ylabel(r"four velocity (c)")
+        plt.show()
+
+    def plot_wind_profile(self):
+        fig = plt.figure(figsize=[9, 6])
+        ax1 = fig.add_subplot(1, 1, 1)
+
+        r = np.logspace(0, 6, 128)
+        cm = self.config.inner_radius_cm
+
+        theta = 0.0
+        states = [self.model.sample_wind_spherical(ri, theta) for ri in r]
+
+        ax1.plot(r * cm, [s.u for s in states], label='Radial four velocity ($c$)')
+        ax1.plot(r * cm, [s.temperature() for s in states], label=r'Comoving photon temperature ($m_e c^2$)')
+        ax1.plot(r * cm, r**(-1.0) * 20)
+        ax1.plot(r * cm, r**(-2./3))
+
+        ax1.set_xscale('log')
+        ax1.set_yscale('log')
+        ax1.set_xlabel(r"radius, cm")
+        ax1.legend(loc='best')
+        plt.show()
+
+    def plot_wind_structure(self):
+        num_axes = 3
+        fig = plt.figure(figsize=[6, 8])
+        axes = [fig.add_subplot(num_axes, 1, n + 1) for n in range(num_axes)]
+
+        cm = self.config.inner_radius_cm
+        physics = radmc.PhysicsConstants()
+        thetas = np.linspace(0.0, 0.66, 24)
+        structure = []
+
+        for theta in thetas:
+            rphot = self.model.approximate_photosphere(theta)
+            state = self.model.sample_wind_spherical(rphot / cm, theta)
+            power = self.model.angular_luminosity(theta)
+            lag = self.model.approximate_lag_time(theta)
+            props = dict(
+                temp=state.temperature() * state.g * physics.gram_to_MeV(physics.me),
+                power=power,
+                lag=lag)
+
+            structure.append(props)
+
+        for i in range(num_axes - 1):
+            axes[i].xaxis.set_major_formatter(plt.NullFormatter())
+
+        axes[0].plot(thetas, [s['power'] for s in structure])
+        axes[1].plot(thetas, [s['temp'] for s in structure])
+        axes[2].plot(thetas, [s['lag'] for s in structure])
+
+        axes[0].set_yscale('log')
+        axes[1].set_yscale('log')
+        axes[2].set_yscale('log')
+
+        axes[0].set_ylabel(r"$L(\theta)$ (erg/s)")
+        axes[1].set_ylabel(r"$h \nu$ (MeV)")
+        axes[2].set_ylabel(r"$\delta t$ (s)")
+        axes[2].set_xlabel(r"$\theta_{\rm obs}$")
         plt.show()
 
 
@@ -151,7 +235,8 @@ class WindProfile(object):
 class Analysis(object):
 
     def __init__(self, filename):
-        self.file = h5py.File(filename, 'r')
+        self.model = StructuredJetModel(filename, restart=True)
+        self.file = self.model.file
 
     def make_log_histogram(self, E):
         dy, x = np.histogram(E, bins=np.logspace(np.log10(min(E)), np.log10(max(E)), 100))
@@ -203,12 +288,31 @@ class Analysis(object):
         ax4.set_ylabel(r"observer angle")
         #ax3.set_xlim(0.0, 10.0)
         #ax3.set_ylim(1e-1, 100.0)
+        plt.show()
 
+    def plot_tracks(self):
+        fig = plt.figure(figsize=[10, 8])
+        ax1 = fig.add_subplot(1, 1, 1)
+        r0 = self.model.config.inner_radius_cm
+        q0 = self.model.config.jet_polar_boundary
+
+        for track in self.file['tracks']:
+            x = r0 * self.file['tracks'][track]['x'][:]
+            z = r0 * self.file['tracks'][track]['z'][:]
+            ax1.plot(x, z, c='k', marker='o', ms=0.5, lw='0.1')
+
+        q = np.linspace(-q0, q0, 128)
+        r = self.model.model.approximate_photosphere(0.0)
+        x = r * np.sin(q)
+        z = r * np.cos(q)
+        ax1.plot(x, z)
+        #ax1.set_yscale('log')
+        plt.show()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=['run', 'plot', 'plot_wind'])
+    parser.add_argument("command", choices=['run', 'plot', 'wind_profile', 'wind_photospheres', 'wind_structure', 'tracks'])
     parser.add_argument("--photons", type=int, default=1000)
     parser.add_argument("--restart", action='store_true')
     parser.add_argument("--file", default="structured_jet.h5")
@@ -221,7 +325,7 @@ if __name__ == "__main__":
         while model.photon_number < args.photons:
 
             try:
-                model.run_photon()
+                model.run_photon(record_track=True)
             except RuntimeError as e:
                 print("Bad photon:", e)
 
@@ -229,15 +333,19 @@ if __name__ == "__main__":
                 model.purge_photons()
 
     elif args.command == 'plot':
-        analysis = Analysis(args.file)
-        analysis.plot_stats()
-        plt.show()
+        Analysis(args.file).plot_stats()
 
-    elif args.command == 'plot_wind':
-        WindProfile().plot_wind_profile()
+    elif args.command == 'tracks':
+        Analysis(args.file).plot_tracks()
 
+    elif args.command == 'wind_profile':
+        WindProperties().plot_wind_profile()
 
+    elif args.command == 'wind_photospheres':
+        WindProperties().plot_wind_photospheres()
 
+    elif args.command == 'wind_structure':
+        WindProperties().plot_wind_structure()
 
 
 
