@@ -299,9 +299,8 @@ FourVector& FourVector::operator/= (double scalar)
 FourVector FourVector::projectedAlong (const UnitVector& nhat) const
 {
     const double *u = components;
-    double nx, ny, nz;
-    nhat.getCartesianComponents (nx, ny, nz);
-    return FourVector (u[0], u[1] * nx, u[2] * ny, u[3] * nz);
+    const double mu = nhat.pitchAngleWith (getUnitThreeVector());
+    return FourVector (u[0], u[1] * mu, u[2] * mu, u[3] * mu);
 }
 
 FourVector FourVector::transformedBy (const LorentzBoost& L) const
