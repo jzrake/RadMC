@@ -275,8 +275,9 @@ class WindProperties(object):
 
 class PhotonProperties(object):
 
-    def __init__(self, filename):
+    def __init__(self, filename, model):
         self.model = StructuredJetModel(filename, restart=True)
+        self.model_id = model
         self.file = self.model.file
         self.T = self.file['time'][...]
         self.R = self.file['radius'][...]
@@ -313,21 +314,41 @@ class PhotonProperties(object):
         fig = plt.figure(figsize=[6, 8])
         ax1 = fig.add_subplot(2, 1, 1)
         ax2 = fig.add_subplot(2, 1, 2)
-
         T, R, Q, E, L = self.load_photons()
 
-        Lhist, Lbins = np.histogram(L, bins='auto')
-        Fhist, Fbins = np.histogram(L, bins=Lbins, weights=E) # energy flux
+        physics = radmc.PhysicsConstants()
 
+        if self.model_id == 1:
+            count_normalization = 0.25
+            X = 5 # photons per baryon
+            fig.suptitle(r"Model 2: $L_0 = 10^{{49}} \ \rm{{erg/s}} \ \eta = 15 \ n_\gamma / n_p = {}$".format(X))
+        if self.model_id == 2:
+            count_normalization = 0.09
+            X = 10 # photons per baryon
+            fig.suptitle(r"Model 2: $L_0 = 10^{{50}} \ \rm{{erg/s}} \ \eta = 24 \ n_\gamma / n_p = {}$".format(X))
+        if self.model_id == 3:
+            count_normalization = 0.033
+            X = 18 # photons per baryon
+            fig.suptitle(r"Model 2: $L_0 = 10^{{51}} \ \rm{{erg/s}} \ \eta = 37 \ n_\gamma / n_p = {}$".format(X))
+
+        E *= physics.gram_to_MeV(physics.me) * 1e3 / X # convert nominal photon energy to keV
+        nlo = np.where((10 < E) * (E < 50))
+        nhi = np.where((50 < E) * (E < 300))
+        wlo = np.ones_like(L[nlo]) * count_normalization
+        whi = np.ones_like(L[nhi]) * count_normalization
+
+        Lhist, Lbins = np.histogram(L, bins=512, range=[0, 10])
+        Fhist, Fbins = np.histogram(L, bins=Lbins, weights=E) # energy flux
         Lhist[Lhist == 0] = 1
         t = 0.5 * (Lbins[1:] + Lbins[:1])
-        ax1.plot(t, Fhist / Lhist)
 
-        ax2.hist(L[E < 1.25 * E.mean()], histtype='step', bins=Lbins, normed=False, label=r'$10 - 50 keV$')
-        ax2.hist(L[E > 1.25 * E.mean()], histtype='step', bins=Lbins, normed=False, label=r'$50 - 300 keV$')
-        ax1.set_ylabel(r"mean photon energy")
+        ax1.plot(t, Fhist / Lhist)
+        ax2.hist(L[nlo], histtype='step', bins=Lbins, weights=wlo, normed=False, label=r'$10 - 50 keV$')
+        ax2.hist(L[nhi], histtype='step', bins=Lbins, weights=whi, normed=False, label=r'$50 - 300 keV$')
+
+        ax1.set_ylabel(r"mean photon energy (keV)")
         ax2.set_ylabel(r"photon flux")
-        ax2.set_xlabel(r"$t - t_c$")
+        ax2.set_xlabel(r"$t - t_{\rm GW}$")
         ax1.set_xlim(0.0, 6.0)
         ax2.set_xlim(0.0, 6.0)
         ax2.legend(loc='best')
@@ -435,37 +456,10 @@ if __name__ == "__main__":
             if len(model.photon_cache) >= 10:
                 model.purge_photons()
 
-    elif args.command == 'light_curve': PhotonProperties(args.file).plot_light_curve()
-    elif args.command == 'angle_stats': PhotonProperties(args.file).plot_angle_stats()
-    elif args.command == 'time_stats': PhotonProperties(args.file).plot_time_stats()
-    elif args.command == 'tracks': PhotonProperties(args.file).plot_tracks()
+    elif args.command == 'light_curve': PhotonProperties(args.file, args.model).plot_light_curve()
+    elif args.command == 'angle_stats': PhotonProperties(args.file, args.model).plot_angle_stats()
+    elif args.command == 'time_stats': PhotonProperties(args.file, args.model).plot_time_stats()
+    elif args.command == 'tracks': PhotonProperties(args.file, args.model).plot_tracks()
     elif args.command == 'wind_profile': WindProperties().plot_wind_profile()
     elif args.command == 'wind_photospheres': WindProperties().plot_wind_photospheres()
     elif args.command == 'wind_structure': WindProperties().plot_wind_structure()
-
-
-# def make_estimates(theta):
-#     theta_jet = 0.1
-#     viewing_angle = 0.24
-
-#     physics = radmc.PhysicsConstants()
-#     Etot = 2e51 # erg
-#     L0 = 5e52 # erg / s / Sr
-#     eta0 = 1000
-#     f0 = L0 / eta0 # erg / s / Sr
-
-#     f = f0 * np.exp(-(theta / theta_jet)**2)
-#     eta = eta0 * np.exp(-(theta / theta_jet)**2)
-
-#     Ndot = f / (physics.mp * physics.c * physics.c)
-#     rphot = Ndot * physics.st / (2 * eta**2 * physics.c)
-#     tlag = rphot / (2 * eta**2 * physics.c)
-
-#     print("Ndot .......... {:.2e} 1/s/Sr".format(Ndot))
-#     print("rphot ......... {:.2e} cm".format(rphot))
-#     print("tlag .......... {:.2e} s".format(tlag))
-#     print("L ............. {:.2e} s".format(eta * f))
-
-# make_estimates(0.24)
-# exit()
-
