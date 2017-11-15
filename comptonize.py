@@ -15,14 +15,17 @@ class ComptonizationTest(object):
         path = ops.comptonize(temperature, num_scatterings)
 
         E = [p.t for p in path]
-        energies = np.linspace(min(E), max(E), 1024)
 
-        plt.hist(E, bins=128, histtype='step', normed=True)
-        plt.plot(energies, [self.wein_photon_spectrum(temperature, e) for e in energies])
-        plt.xlabel(r"$h \nu$")
-        plt.ylabel(r"$dN / d\nu$")
+        bins = np.logspace(np.log10(min(E)), np.log10(max(E)), 100)
+        ax1 = plt.figure().add_subplot(1, 1, 1)
+        ax1.hist(E, bins=bins, histtype='step', normed=True)
+        ax1.plot(bins, [self.wien_photon_spectrum(temperature, e) for e in bins])
+        ax1.set_xscale('log')
+        ax1.set_yscale('log')
+        ax1.set_xlabel(r"$h \nu$")
+        ax1.set_ylabel(r"$dN / d\nu$")
 
-    def wein_photon_spectrum(self, kT, nu):
+    def wien_photon_spectrum(self, kT, nu):
         return 1. / (2 * kT**3) * nu**2 * math.exp(-nu / kT)
 
 

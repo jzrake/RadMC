@@ -9,20 +9,51 @@ import radmc
 
 
 
-def make_config():
-    config = radmc.StructuredJetModel.Config()
-    config.table_resolution_radius = 256
-    config.table_resolution_theta = 256
-    config.outermost_radius = 1e8
-    config.jet_opening_angle = 0.3
-    config.jet_polar_boundary = np.pi / 2
-    config.jet_structure_exponent = 0.0
-    config.specific_wind_power = 24
-    config.luminosity_per_steradian = 1e50
-    config.inner_radius_cm = 1e8
-    config.leptons_per_baryon = 1.0
-    config.photons_per_baryon = 1e3
-    return config
+def make_config(model=1):
+    if model == 1:
+        config = radmc.StructuredJetModel.Config()
+        config.table_resolution_radius = 1024
+        config.table_resolution_theta = 256
+        config.outermost_radius = 1e9
+        config.jet_opening_angle = 0.3
+        config.jet_polar_boundary = np.pi / 2
+        config.jet_structure_exponent = 0.0
+        config.specific_wind_power = 15
+        config.luminosity_per_steradian = 1e49
+        config.inner_radius_cm = 1e6
+        config.leptons_per_baryon = 1.0
+        config.photons_per_baryon = 1.0
+        return config
+
+    if model == 2:
+        config = radmc.StructuredJetModel.Config()
+        config.table_resolution_radius = 1024
+        config.table_resolution_theta = 256
+        config.outermost_radius = 1e9
+        config.jet_opening_angle = 0.3
+        config.jet_polar_boundary = np.pi / 2
+        config.jet_structure_exponent = 0.0
+        config.specific_wind_power = 24
+        config.luminosity_per_steradian = 1e50
+        config.inner_radius_cm = 1e6
+        config.leptons_per_baryon = 1.0
+        config.photons_per_baryon = 1.0
+        return config
+
+    if model == 3:
+        config = radmc.StructuredJetModel.Config()
+        config.table_resolution_radius = 1024
+        config.table_resolution_theta = 256
+        config.outermost_radius = 1e9
+        config.jet_opening_angle = 0.3
+        config.jet_polar_boundary = np.pi / 2
+        config.jet_structure_exponent = 0.0
+        config.specific_wind_power = 37
+        config.luminosity_per_steradian = 1e51
+        config.inner_radius_cm = 1e6
+        config.leptons_per_baryon = 1.0
+        config.photons_per_baryon = 1.0
+        return config
 
 
 
@@ -43,8 +74,18 @@ def report_model(model, config):
 
 
 
+def wien_photon(kT, nu):
+    return 1. / (2 * kT**3) * nu**2 * np.exp(-nu / kT)
+
+
+
+def wien_energy(kT, nu):
+    return 1. / (2 * kT**3) * nu**3 * np.exp(-nu / kT)
+
+
+
 class StructuredJetModel(object):
-    def __init__(self, filename, restart=False):
+    def __init__(self, filename, restart=False, model=1):
 
         if restart:
             self.file = h5py.File(filename, 'a')
@@ -52,7 +93,7 @@ class StructuredJetModel(object):
             config = self.read_config_from_file()
 
         else:
-            config = make_config()
+            config = make_config(model=model)
             self.file = h5py.File(filename, 'w')
             self.photon_number = 0
             self.write_config_to_file(config)
@@ -78,7 +119,7 @@ class StructuredJetModel(object):
 
         track = []
 
-        while (p.position.radius < self.config.outermost_radius * 0.01
+        while (p.position.radius < self.config.outermost_radius * 0.05
             and p.position.theta < self.config.jet_polar_boundary):
             p = self.model.step_photon(p)
             n += 1
@@ -232,11 +273,16 @@ class WindProperties(object):
 
 
 
-class Analysis(object):
+class PhotonProperties(object):
 
     def __init__(self, filename):
         self.model = StructuredJetModel(filename, restart=True)
         self.file = self.model.file
+        self.T = self.file['time'][...]
+        self.R = self.file['radius'][...]
+        self.Q = self.file['theta'][...]
+        self.E = self.file['energy'][...]
+        self.L = self.file['lag'][...]
 
     def make_log_histogram(self, E):
         dy, x = np.histogram(E, bins=np.logspace(np.log10(min(E)), np.log10(max(E)), 100))
@@ -250,44 +296,93 @@ class Analysis(object):
         xc = 0.5 * (x[1:] + x[:-1])
         return xc, dy / dx
 
-    def load_photons_for_viewing_angles(self, theta0, theta1):
-        T = self.file['time'][...]
-        R = self.file['radius'][...]
-        Q = self.file['theta'][...]
-        E = self.file['energy'][...]
-        L = self.file['lag'][...]
-        I = np.where((theta0 < Q) * (Q <= theta1))# * (L < 10.0))
+    def load_photons(self):
+        return self.T, self.R, self.Q, self.E, self.L
+
+    def load_photons_for_arrival_times(self, t0, t1):
+        T, R, Q, E, L = self.load_photons()
+        I = np.where((t0 < L) * (L <= t1))
         return T[I], R[I], Q[I], E[I], L[I]
 
-    def plot_stats(self):
+    def load_photons_for_viewing_angles(self, theta0, theta1):
+        T, R, Q, E, L = self.load_photons()
+        I = np.where((theta0 < Q) * (Q <= theta1))
+        return T[I], R[I], Q[I], E[I], L[I]
+
+    def plot_light_curve(self):
+        fig = plt.figure(figsize=[6, 8])
+        ax1 = fig.add_subplot(2, 1, 1)
+        ax2 = fig.add_subplot(2, 1, 2)
+
+        T, R, Q, E, L = self.load_photons()
+
+        Lhist, Lbins = np.histogram(L, bins='auto')
+        Fhist, Fbins = np.histogram(L, bins=Lbins, weights=E) # energy flux
+
+        Lhist[Lhist == 0] = 1
+        t = 0.5 * (Lbins[1:] + Lbins[:1])
+        ax1.plot(t, Fhist / Lhist)
+
+        ax2.hist(L[E < 1.25 * E.mean()], histtype='step', bins=Lbins, normed=False, label=r'$10 - 50 keV$')
+        ax2.hist(L[E > 1.25 * E.mean()], histtype='step', bins=Lbins, normed=False, label=r'$50 - 300 keV$')
+        ax1.set_ylabel(r"mean photon energy")
+        ax2.set_ylabel(r"photon flux")
+        ax2.set_xlabel(r"$t - t_c$")
+        ax1.set_xlim(0.0, 6.0)
+        ax2.set_xlim(0.0, 6.0)
+        ax2.legend(loc='best')
+        ax1.xaxis.set_major_formatter(plt.NullFormatter())
+        plt.show()
+
+    def plot_time_stats(self):
+        fig = plt.figure(figsize=[10, 8])
+        ax1 = fig.add_subplot(1, 1, 1)
+
+        for t in [0.0, 1.0, 2.0]:
+            T, R, Q, E, L = self.load_photons_for_arrival_times(t, t + 1.0)
+
+            kT = 1. / 3 * E.mean()
+            bins = np.logspace(np.log10(min(E)), np.log10(max(E)), 48)
+            ax1.hist(E, bins=bins, histtype='step', normed=True, color='k', lw=t + 0.5)
+            ax1.plot(bins, wien_photon(kT, bins), c='k', ls='--', lw=0.5)
+
+        ax1.set_xscale('log')
+        ax1.set_yscale('log')
+        plt.show()
+
+    def plot_angle_stats(self):
         fig = plt.figure(figsize=[10, 8])
         ax1 = fig.add_subplot(2, 2, 1)
         ax2 = fig.add_subplot(2, 2, 2)
         ax3 = fig.add_subplot(2, 2, 3)
         ax4 = fig.add_subplot(2, 2, 4)
 
-        angles = [0.0, 0.2, 0.4, 0.6]
+        angles = [0.0, 3.0]#, 0.2, 0.4, 0.6]
 
         for i in range(len(angles) - 1):
             T, R, Q, E, L = self.load_photons_for_viewing_angles(angles[i], angles[i + 1])
 
-            E0, NE = self.make_log_histogram(E)
+            kT = 1. / 3 * E.mean()
+            bins = np.logspace(np.log10(min(E)), np.log10(max(E)), 100)
+            ax1.hist(E, bins=bins, histtype='step', normed=True)
+            ax1.plot(bins, wien_photon(kT, bins))
+
             Q0, NQ = self.make_log_histogram(Q)
 
-            # if i == 0: ax1.loglog(E0, 1e6 * E0**1.8)
-            ax1.loglog(E0, NE * E0**2)
+            hist, bins = np.histogram(L, bins='auto')
             ax2.loglog(Q0, NQ / (2 * np.pi * np.sin(Q0)))
-            ax3.hist(L, histtype='step', bins=128, log=False)
+            ax3.hist(L, histtype='step', bins=bins, log=False)
             ax4.scatter(L, Q, s=.1)
 
-        ax1.set_ylabel(r"$E^2 dN/dE$")
+        ax1.set_xscale('log')
+        ax1.set_yscale('log')
+        ax1.set_ylabel(r"$dN/dE$")
         ax2.set_ylabel(r"$dN/d\Omega$")
+        ax3.set_xlim(0.0, 10.0)
         ax3.set_ylabel(r"photon flux")
         ax3.set_xlabel(r"$t - t_c$")
         ax4.set_xlabel(r"lag time")
         ax4.set_ylabel(r"observer angle")
-        #ax3.set_xlim(0.0, 10.0)
-        #ax3.set_ylim(1e-1, 100.0)
         plt.show()
 
     def plot_tracks(self):
@@ -306,47 +401,47 @@ class Analysis(object):
         x = r * np.sin(q)
         z = r * np.cos(q)
         ax1.plot(x, z)
-        #ax1.set_yscale('log')
         plt.show()
 
 
 if __name__ == "__main__":
+    choices = ['run',
+    'light_curve',
+    'angle_stats',
+    'time_stats',
+    'wind_profile',
+    'wind_photospheres',
+    'wind_structure',
+    'tracks']
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=['run', 'plot', 'wind_profile', 'wind_photospheres', 'wind_structure', 'tracks'])
+    parser.add_argument("command", choices=choices)
     parser.add_argument("--photons", type=int, default=1000)
+    parser.add_argument("--model", type=int, default=1)
     parser.add_argument("--restart", action='store_true')
     parser.add_argument("--file", default="structured_jet.h5")
     args = parser.parse_args()
 
     if args.command == 'run':
         radmc.seed(str(datetime.datetime.now()))
-        model = StructuredJetModel(args.file, restart=args.restart)
+        model = StructuredJetModel(args.file, restart=args.restart, model=args.model)
 
         while model.photon_number < args.photons:
 
             try:
-                model.run_photon(record_track=True)
+                model.run_photon(record_track=False)
             except RuntimeError as e:
                 print("Bad photon:", e)
 
             if len(model.photon_cache) >= 10:
                 model.purge_photons()
 
-    elif args.command == 'plot':
-        Analysis(args.file).plot_stats()
-
-    elif args.command == 'tracks':
-        Analysis(args.file).plot_tracks()
-
-    elif args.command == 'wind_profile':
-        WindProperties().plot_wind_profile()
-
-    elif args.command == 'wind_photospheres':
-        WindProperties().plot_wind_photospheres()
-
-    elif args.command == 'wind_structure':
-        WindProperties().plot_wind_structure()
-
+    elif args.command == 'light_curve': PhotonProperties(args.file).plot_light_curve()
+    elif args.command == 'angle_stats': PhotonProperties(args.file).plot_angle_stats()
+    elif args.command == 'time_stats': PhotonProperties(args.file).plot_time_stats()
+    elif args.command == 'tracks': PhotonProperties(args.file).plot_tracks()
+    elif args.command == 'wind_profile': WindProperties().plot_wind_profile()
+    elif args.command == 'wind_photospheres': WindProperties().plot_wind_photospheres()
+    elif args.command == 'wind_structure': WindProperties().plot_wind_structure()
 
 
 # def make_estimates(theta):
