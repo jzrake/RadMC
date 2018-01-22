@@ -39,6 +39,12 @@ public:
         double properNumberDensity (Species) const;
 
         /**
+        Return the ratio of photons to protons if the photon number is given
+        by thermodynamic equilibrium condition (Planck spectrum).
+        */
+        double blackbodyPhotonsPerProton() const;
+
+        /**
         Return the mean-free-path to free electron scattering, in cm, for a
         photon propagating in the given direction (defined as dl / dt where dt
         is the differential optical depth). This depends on the specific wind

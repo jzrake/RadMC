@@ -18,6 +18,7 @@ public:
     const double mp = 1.67262190e-24; // proton mass (g)
     const double st = 6.65245871e-25; // Thomson cross section (cm^2)
     const double pc = 3.08567757e+18; // parsec (cm)
+    const double pi = 3.14159265e+00; // pi
     /** Convert a mass in grams to m c^2 in erg. */
     double gramToErg (double massInGrams);
     /** Convert a mass in grams to m c^2 in MeV. */

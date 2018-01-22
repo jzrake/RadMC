@@ -112,8 +112,8 @@ class StructuredJetModel(object):
 
     def run_photon(self, record_track=False):
         r0 = self.config.inner_radius_cm
-        q = self.model.sample_theta(0.5)
-        r = self.model.approximate_photosphere(q) / r0 * 0.01
+        q = self.model.sample_theta(1.0)
+        r = self.model.approximate_photosphere(q) / r0 * 0.001
         p = self.model.generate_photon(r, q)
         n = 0
 
@@ -183,12 +183,11 @@ class StructuredJetModel(object):
 
 class WindProperties(object):
 
-    def __init__(self):
-        config = make_config()
-        self.config = config
-        self.model = radmc.StructuredJetModel(config)
-        report_model(self.model, config)
-
+    def __init__(self, model):
+        self.config = make_config(model)
+        self.model = radmc.StructuredJetModel(self.config)
+        report_model(self.model, self.config)
+        
     def plot_wind_photospheres(self):
         fig = plt.figure(figsize=[9, 6])
         ax1 = fig.add_subplot(1, 1, 1)
@@ -223,8 +222,9 @@ class WindProperties(object):
 
         ax1.plot(r * cm, [s.u for s in states], label='Radial four velocity ($c$)')
         ax1.plot(r * cm, [s.temperature() for s in states], label=r'Comoving photon temperature ($m_e c^2$)')
-        ax1.plot(r * cm, r**(-1.0) * 20)
-        ax1.plot(r * cm, r**(-2./3))
+        ax1.plot(r * cm, [s.blackbody_photons_per_proton() for s in states], label=r'$n_\gamma / n_p$')
+        # ax1.plot(r * cm, r**(-1.0) * 20)
+        # ax1.plot(r * cm, r**(-2./3))
 
         ax1.set_xscale('log')
         ax1.set_yscale('log')
@@ -275,9 +275,10 @@ class WindProperties(object):
 
 class PhotonProperties(object):
 
-    def __init__(self, filename, model):
+    def __init__(self, filename, model, save=False):
         self.model = StructuredJetModel(filename, restart=True)
         self.model_id = model
+        self.save = save
         self.file = self.model.file
         self.T = self.file['time'][...]
         self.R = self.file['radius'][...]
@@ -310,14 +311,7 @@ class PhotonProperties(object):
         I = np.where((theta0 < Q) * (Q <= theta1))
         return T[I], R[I], Q[I], E[I], L[I]
 
-    def plot_light_curve(self):
-        fig = plt.figure(figsize=[6, 8])
-        ax1 = fig.add_subplot(2, 1, 1)
-        ax2 = fig.add_subplot(2, 1, 2)
-        T, R, Q, E, L = self.load_photons()
-
-        physics = radmc.PhysicsConstants()
-
+    def model_details(self, fig):
         if self.model_id == 1:
             count_normalization = 0.25
             X = 5 # photons per baryon
@@ -329,8 +323,17 @@ class PhotonProperties(object):
         if self.model_id == 3:
             count_normalization = 0.033
             X = 18 # photons per baryon
-            fig.suptitle(r"Model 2: $L_0 = 10^{{51}} \ \rm{{erg/s}} \ \eta = 37 \ n_\gamma / n_p = {}$".format(X))
+            fig.suptitle(r"Model 3: $L_0 = 10^{{51}} \ \rm{{erg/s}} \ \eta = 37 \ n_\gamma / n_p = {}$".format(X))
+        return count_normalization, X
 
+    def plot_light_curve(self):
+        fig = plt.figure(figsize=[6, 8])
+        ax1 = fig.add_subplot(2, 1, 1)
+        ax2 = fig.add_subplot(2, 1, 2)
+        T, R, Q, E, L = self.load_photons()
+
+        count_normalization, X = self.model_details(fig)
+        physics = radmc.PhysicsConstants()
         E *= physics.gram_to_MeV(physics.me) * 1e3 / X # convert nominal photon energy to keV
         nlo = np.where((10 < E) * (E < 50))
         nhi = np.where((50 < E) * (E < 300))
@@ -353,23 +356,41 @@ class PhotonProperties(object):
         ax2.set_xlim(0.0, 6.0)
         ax2.legend(loc='best')
         ax1.xaxis.set_major_formatter(plt.NullFormatter())
-        plt.show()
 
-    def plot_time_stats(self):
-        fig = plt.figure(figsize=[10, 8])
+        if self.save:
+            plt.savefig("model{}_lc.pdf".format(self.model_id))
+        else:
+            plt.show()
+
+    def plot_spectral_evolution(self):
+        fig = plt.figure(figsize=[6, 5])
         ax1 = fig.add_subplot(1, 1, 1)
 
-        for t in [0.0, 1.0, 2.0]:
-            T, R, Q, E, L = self.load_photons_for_arrival_times(t, t + 1.0)
+        for t in [0.0, 0.5, 1.0, 1.5, 2.0]:
+            T, R, Q, E, L = self.load_photons_for_arrival_times(t, t + 0.5)
+
+            count_normalization, X = self.model_details(fig)
+            physics = radmc.PhysicsConstants()
+            E *= physics.gram_to_MeV(physics.me) * 1e3 / X # convert nominal photon energy to keV
+            fit_label = "Wien photon spectrum" if t == 0.0 else None
 
             kT = 1. / 3 * E.mean()
             bins = np.logspace(np.log10(min(E)), np.log10(max(E)), 48)
-            ax1.hist(E, bins=bins, histtype='step', normed=True, color='k', lw=t + 0.5)
-            ax1.plot(bins, wien_photon(kT, bins), c='k', ls='--', lw=0.5)
+            ax1.hist(E, bins=bins, histtype='step', normed=True, color='k', lw=0.5 * (1 + t), label=r"$t={}-{}$".format(t, t + 0.5))
+            ax1.plot(bins, wien_photon(kT, bins), c='k', ls='--', lw=0.5, label=fit_label)
+            # ax1.plot(bins, 3e-4 * bins**1.6)
 
+        ax1.set_ylim(1e-5, 0.1)
         ax1.set_xscale('log')
         ax1.set_yscale('log')
-        plt.show()
+        ax1.set_xlabel(r"Photon energy (keV)")
+        ax1.set_ylabel(r"Photon spectrum $dN/dE$")
+        ax1.legend(loc='best')
+
+        if self.save:
+            plt.savefig("model{}_ps.pdf".format(self.model_id))
+        else:
+            plt.show()
 
     def plot_angle_stats(self):
         fig = plt.figure(figsize=[10, 8])
@@ -429,7 +450,7 @@ if __name__ == "__main__":
     choices = ['run',
     'light_curve',
     'angle_stats',
-    'time_stats',
+    'spectral_evolution',
     'wind_profile',
     'wind_photospheres',
     'wind_structure',
@@ -438,9 +459,12 @@ if __name__ == "__main__":
     parser.add_argument("command", choices=choices)
     parser.add_argument("--photons", type=int, default=1000)
     parser.add_argument("--model", type=int, default=1)
+    parser.add_argument("--save", action="store_true")
     parser.add_argument("--restart", action='store_true')
     parser.add_argument("--file", default="structured_jet.h5")
     args = parser.parse_args()
+
+    photon_properties = lambda: PhotonProperties(args.file, args.model, save=args.save)
 
     if args.command == 'run':
         radmc.seed(str(datetime.datetime.now()))
@@ -449,17 +473,17 @@ if __name__ == "__main__":
         while model.photon_number < args.photons:
 
             try:
-                model.run_photon(record_track=False)
+                model.run_photon(record_track=True)
             except RuntimeError as e:
                 print("Bad photon:", e)
 
             if len(model.photon_cache) >= 10:
                 model.purge_photons()
 
-    elif args.command == 'light_curve': PhotonProperties(args.file, args.model).plot_light_curve()
-    elif args.command == 'angle_stats': PhotonProperties(args.file, args.model).plot_angle_stats()
-    elif args.command == 'time_stats': PhotonProperties(args.file, args.model).plot_time_stats()
-    elif args.command == 'tracks': PhotonProperties(args.file, args.model).plot_tracks()
-    elif args.command == 'wind_profile': WindProperties().plot_wind_profile()
-    elif args.command == 'wind_photospheres': WindProperties().plot_wind_photospheres()
-    elif args.command == 'wind_structure': WindProperties().plot_wind_structure()
+    elif args.command == 'light_curve': photon_properties().plot_light_curve()
+    elif args.command == 'angle_stats': photon_properties().plot_angle_stats()
+    elif args.command == 'spectral_evolution': photon_properties().plot_spectral_evolution()
+    elif args.command == 'tracks': photon_properties().plot_tracks()
+    elif args.command == 'wind_profile': WindProperties(args.model).plot_wind_profile()
+    elif args.command == 'wind_photospheres': WindProperties(args.model).plot_wind_photospheres()
+    elif args.command == 'wind_structure': WindProperties(args.model).plot_wind_structure()

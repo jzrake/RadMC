@@ -51,7 +51,7 @@ double RelativisticWind::WindState::temperature() const
 double RelativisticWind::WindState::properNumberDensity (WindState::Species species) const
 {
     const double R = innerRadiusCm;
-    const double F = luminosityPerSteradian / specificWindPower; // L = 4 pi F eta (F is in erg / s)
+    const double F = luminosityPerSteradian / specificWindPower; // L = F eta (F is in erg / s)
     const double Z = leptonsPerBaryon;
     const double D = d * F / R / R / P.c; // rest-mass density (erg / cm^3)
     const double np = D / (P.mp * P.c * P.c * (1 + Z * P.me / P.mp));
@@ -62,6 +62,22 @@ double RelativisticWind::WindState::properNumberDensity (WindState::Species spec
         case Species::electron: return np * leptonsPerBaryon;
         case Species::photon: return np * photonsPerBaryon;
     }
+}
+
+double RelativisticWind::WindState::blackbodyPhotonsPerProton() const
+{
+    const auto P = PhysicsConstants();
+    const double Z = leptonsPerBaryon;
+    const double X = photonsPerBaryon;
+    const double R = innerRadiusCm;
+    const double F = luminosityPerSteradian / specificWindPower; // L = F eta (F is in erg / s)
+    const double E0 = F / R / R / P.c; // base units of energy density (erg / cm^3)
+    const double ug = 3 * p * E0 * X / (1 + Z + X); // radiative part of internal energy
+    const double kT = std::pow (ug / (8. / 15 * std::pow (P.pi, 5.)) * std::pow (P.h * P.c, 3.), 1. / 4);
+    const double zt = 1.202056903; // zeta(3)
+    const double np = properNumberDensity (Species::baryon);
+    const double ng = 16. * P.pi * zt * std::pow (kT / P.h / P.c, 3.);
+    return ng / np;
 }
 
 double RelativisticWind::WindState::thomsonMeanFreePath (UnitVector nhat) const
