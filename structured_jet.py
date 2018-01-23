@@ -214,7 +214,7 @@ class WindProperties(object):
         fig = plt.figure(figsize=[9, 6])
         ax1 = fig.add_subplot(1, 1, 1)
 
-        r = np.logspace(0, 6, 128)
+        r = np.logspace(0, 5, 128)
         cm = self.config.inner_radius_cm
 
         theta = 0.0
@@ -223,8 +223,8 @@ class WindProperties(object):
         ax1.plot(r * cm, [s.u for s in states], label='Radial four velocity ($c$)')
         ax1.plot(r * cm, [s.temperature() for s in states], label=r'Comoving photon temperature ($m_e c^2$)')
         ax1.plot(r * cm, [s.blackbody_photons_per_proton() for s in states], label=r'$n_\gamma / n_p$')
-        # ax1.plot(r * cm, r**(-1.0) * 20)
-        # ax1.plot(r * cm, r**(-2./3))
+        ax1.plot(r * cm, r**(-1.0) * 10000, ls='--')
+        ax1.plot(r * cm, r**(-2./3) * 5000, ls='--')
 
         ax1.set_xscale('log')
         ax1.set_yscale('log')
@@ -445,6 +445,10 @@ class PhotonProperties(object):
         ax1.plot(x, z)
         plt.show()
 
+
+
+class DissipativeWind(object):
+    
 
 if __name__ == "__main__":
     choices = ['run',

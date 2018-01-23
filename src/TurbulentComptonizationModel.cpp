@@ -198,7 +198,7 @@ std::vector<double> TurbulentComptonizationModel::getPhotonEnergyBins() const
 std::vector<double> TurbulentComptonizationModel::getPhotonSpectrum() const
 {
     auto hist = computePhotonSpectrum();
-    return hist.getDataY();
+    return std::vector<double>(hist.getDataY().begin(), hist.getDataY().end() - 1);
 }
 
 
@@ -425,7 +425,7 @@ TabulatedFunction TurbulentComptonizationModel::computePhotonSpectrum() const
     TabulatedFunction hist = TabulatedFunction::makeHistogram (
         energies,
         256, TabulatedFunction::useEqualBinWidthsLogarithmic,
-        true, true, false);
+        true, true, true);
 
     return hist;
 }

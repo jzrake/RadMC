@@ -17,9 +17,10 @@ public:
 
         /**
         Constructor for a wind state. The first argument, reference to the
-        wind model, is not kept.
+        wind model, is not kept. If the entropy is set to zero, then the
+        adiabatic value is used.
         */
-        WindState (const RelativisticWind& wind, double r, double u);
+        WindState (const RelativisticWind& wind, double r, double u, double s=0.0);
         WindState& setLuminosityPerSteradian (double L) { luminosityPerSteradian = L; return *this; }
         WindState& setInnerRadiusCm (double R) { innerRadiusCm = R; return *this; }
         WindState& setLeptonsPerBaryon (double Z) { leptonsPerBaryon = Z; return *this; }
@@ -67,6 +68,7 @@ public:
         double m; // specific enthalpy mu (in units of c^2, not including rest-mass)
         double p; // gas pressure (relative to density)
         double d; // gas density (equal to 1 / (r^2 u))
+        double s; // gas specific entropy
         /**
         Note: these variables are not all independent; they are computed when
         the data structure is initialized, so you should treat them as read-
@@ -96,18 +98,17 @@ public:
     steradian, the isotropic equivalent wind luminosity would be L = 4 pi f
     eta.
     */
-    RelativisticWind& setSpecificWindPower (double eta);
+    void setSpecificWindPower (double eta);
 
     /**
     Set the wind four-velocity at the inner boundary.
     */
-    RelativisticWind& setInitialFourVelocity (double u0);
+    void setInitialFourVelocity (double u0);
 
     /**
-    Set the wind four-velocity at the inner boundary to the given Mach number,
-    M = v / cs.
+    Set the entropy production rate, ds / dlogr.
     */
-    RelativisticWind& setInitialMachNumber (double M);
+    void setEntropyProductionRate (double zeta);
 
     /**
     Integrate a wind profile to the given outer radius. The inner radius is
@@ -118,12 +119,14 @@ public:
     /**
     Get the wind solution at the requested radii.
     */
-    std::vector<WindState> integrate (std::vector<double> radius) const;
+    std::vector<WindState> integrateTable (std::vector<double> radius) const;
 
 private:
     void resetSolverFunction();
     double specificWindPower = 10.0;
     double initialFourVelocity = 1.0;
+    double entropyProductionRate = 0.0; // ds / dlogr
     double adiabaticIndex = 4. / 3;
     mutable RungeKutta solver;
+    mutable RungeKuttaVector vsolver;
 };

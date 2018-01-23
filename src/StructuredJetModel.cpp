@@ -217,7 +217,7 @@ TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double 
     const int N = config.tableResolutionRadius;
     auto table = TabulatedFunction (1.0, rmax, N, TabulatedFunction::useEqualBinWidthsLogarithmic);
     auto wind = makeWindSolver (theta);
-    auto solution = wind.integrate (table.getDataX());
+    auto solution = wind.integrateTable (table.getDataX());
 
     for (int i = 0; i < table.size(); ++i)
     {

@@ -60,7 +60,7 @@ PYBIND11_MODULE (radmc, m)
 
 
     // ========================================================================
-    // TurbulenetComptonizationModel
+    // TurbulentComptonizationModel
     // ========================================================================
     using TCM = TurbulentComptonizationModel;
     py::bind_vector<std::vector<TCM::Photon>> (m, "std::vector<TurbulentComptonizationModel.Photon>", py::module_local (true));
@@ -123,6 +123,12 @@ PYBIND11_MODULE (radmc, m)
     // ========================================================================
     using SRW = RelativisticWind;
     auto srw = py::class_<SRW> (m, "RelativisticWind", py::dynamic_attr());
+    srw.def (py::init<>());
+    srw.def ("integrate", &SRW::integrate);
+    srw.def ("set_specific_wind_power", &SRW::setSpecificWindPower);
+    srw.def ("set_initial_four_velocity", &SRW::setInitialFourVelocity);
+    srw.def ("set_entropy_production_rate", &SRW::setEntropyProductionRate);
+
     py::class_<SRW::WindState> (srw, "WindState")
     .def ("set_luminosity_per_steradian", &SRW::WindState::setLuminosityPerSteradian)
     .def ("set_inner_radius_cm", &SRW::WindState::setInnerRadiusCm)
@@ -139,8 +145,8 @@ PYBIND11_MODULE (radmc, m)
     .def_readonly ("g", &SRW::WindState::g)
     .def_readonly ("m", &SRW::WindState::m)
     .def_readonly ("p", &SRW::WindState::p)
-    .def_readonly ("d", &SRW::WindState::d);
-
+    .def_readonly ("d", &SRW::WindState::d)
+    .def_readonly ("s", &SRW::WindState::s);
 
     // ========================================================================
     // StructuredJetModel

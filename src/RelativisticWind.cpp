@@ -1,11 +1,12 @@
 #include <iostream>
 #include <cmath>
 #include "RelativisticWind.hpp"
+// #define ADIABATIC
 
 
 
 
-RelativisticWind::WindState::WindState (const RelativisticWind& wind, double r, double u) :
+RelativisticWind::WindState::WindState (const RelativisticWind& wind, double r, double u, double s) :
 r(r),
 u(u),
 specificWindPower (wind.specificWindPower),
@@ -22,7 +23,8 @@ adiabaticIndex (wind.adiabaticIndex)
     const double m0 = w0 - 1;
     const double d0 = f0 / (r0 * r0 * u0);
     const double p0 = m0 * d0 * (gm - 1) / gm;
-    const double s0 = p0 / std::pow (d0, gm);
+    const double s0 = s == 0.0 ? p0 / std::pow (d0, gm) : s;
+    WindState::s = s0;
 
     d = f0 / (r * r * u);
     p = std::pow (d, gm) * s0;
@@ -103,22 +105,27 @@ RelativisticWind::RelativisticWind()
     resetSolverFunction();
 }
 
-RelativisticWind& RelativisticWind::setSpecificWindPower (double eta)
+void RelativisticWind::setSpecificWindPower (double eta)
 {
     specificWindPower = eta;
     resetSolverFunction();
-    return *this;
 }
 
-RelativisticWind& RelativisticWind::setInitialFourVelocity (double u0)
+void RelativisticWind::setInitialFourVelocity (double u0)
 {
     initialFourVelocity = u0;
     resetSolverFunction();
-    return *this;
+}
+
+void RelativisticWind::setEntropyProductionRate (double zeta)
+{
+    entropyProductionRate = zeta;
+    resetSolverFunction();
 }
 
 RelativisticWind::WindState RelativisticWind::integrate (double outerRadius) const
 {
+#ifdef ADIABATIC
     solver.setValues (initialFourVelocity, 1.0);
     solver.integrate (outerRadius);
 
@@ -126,14 +133,28 @@ RelativisticWind::WindState RelativisticWind::integrate (double outerRadius) con
     const double u = solver.getY();
 
     return WindState (*this, r, u);
+#else
+    const double initialRadius = 1.0;
+    const double initialEntropy = WindState (*this, initialRadius, initialFourVelocity).s;
+
+    vsolver.setValues ({initialFourVelocity, initialEntropy}, initialRadius);
+    vsolver.integrate (outerRadius);
+
+    const double r = vsolver.getT();
+    const double u = vsolver.getY()[0];
+    const double s = vsolver.getY()[1];
+
+    return WindState (*this, r, u, s);
+#endif
 }
 
-std::vector<RelativisticWind::WindState> RelativisticWind::integrate (std::vector<double> radius) const
+std::vector<RelativisticWind::WindState> RelativisticWind::integrateTable (std::vector<double> radius) const
 {
-    auto solution = std::vector<WindState>();
-
+#ifdef ADIABATIC
     solver.setValues (initialFourVelocity, 1.0);
     solver.integrate (radius.empty() ? 0.0 : radius[0]);
+
+    auto solution = std::vector<WindState>();
 
     for (int i = 0; i < radius.size(); ++i)
     {
@@ -142,13 +163,35 @@ std::vector<RelativisticWind::WindState> RelativisticWind::integrate (std::vecto
         const double r = solver.getT();
         const double u = solver.getY();
         const auto S = WindState (*this, r, u);
-        solution.push_back (S);
+        solution.push_back(S);
     }
     return solution;
+#else
+    const double initialRadius = 1.0;
+    const double initialEntropy = WindState (*this, initialRadius, initialFourVelocity).s;
+
+    vsolver.setValues ({initialFourVelocity, initialEntropy}, initialRadius);
+    vsolver.integrate (radius.empty() ? 0.0 : radius[0]);
+
+    auto solution = std::vector<WindState>();
+
+    for (int i = 0; i < radius.size(); ++i)
+    {
+        vsolver.integrate (radius[i]);
+
+        const double r = vsolver.getT();
+        const double u = vsolver.getY()[0];
+        const double s = vsolver.getY()[1];
+        const auto S = WindState (*this, r, u, s);
+        solution.push_back(S);
+    }
+    return solution;
+#endif
 }
 
 void RelativisticWind::resetSolverFunction()
 {
+#ifdef ADIABATIC
     const double gm = adiabaticIndex;
     const double e0 = specificWindPower;
     const double u0 = initialFourVelocity;
@@ -161,6 +204,8 @@ void RelativisticWind::resetSolverFunction()
     const double d0 = f0 / (r0 * r0 * u0);
     const double p0 = m0 * d0 * (gm - 1) / gm;
     const double s0 = p0 / std::pow (d0, gm);
+
+    const double dsdlogr = 0.0;
 
     auto udot = [=] (double u, double r)
     {
@@ -175,11 +220,42 @@ void RelativisticWind::resetSolverFunction()
 
         const double P = (a2 - v2) * e0 / (gm - 1);
         const double Q = 2 * g * m;
-        const double R = 0.0;
+        const double R = -(gm - 2) / (gm - 1) * g * m / gm * dsdlogr * u / r;
         const double du = -(R + Q * u / r) / P;
 
         return du;
     };
     solver.setTolerance (1e-10);
     solver.setFunction (udot);
+#else
+    const double gm = adiabaticIndex;
+    const double e0 = specificWindPower;
+    const double f0 = 1.0;
+    const double dsdlogr = entropyProductionRate;
+
+    auto udot = [=] (std::valarray<double> y, double r) -> std::valarray<double>
+    {
+        const double u = y[0];
+        const double s = y[1];
+        const double d = f0 / (r * r * u);
+        const double p = std::pow (d, gm) * s;
+        const double g = std::sqrt (1 + u * u);
+        const double m = p / d * gm / (gm - 1);
+        const double w = 1 + m;
+
+        const double v2 = u * u / g / g;
+        const double a2 = gm * p / (d * w);
+
+        const double P = (a2 - v2) * e0 / (gm - 1);
+        const double Q = 2 * g * m;
+        const double R = -(gm - 2) / (gm - 1) * g * m / gm * dsdlogr * u / r;
+        const double du = -(R + Q * u / r) / P;
+        const double ds = dsdlogr / r;
+
+        return {du, ds};
+    };
+
+    vsolver.setTolerance (1e-10);
+    vsolver.setFunction (udot);
+#endif
 }
