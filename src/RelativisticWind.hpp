@@ -17,10 +17,11 @@ public:
 
         /**
         Constructor for a wind state. The first argument, reference to the
-        wind model, is not kept. If the entropy is set to zero, then the
-        adiabatic value is used.
+        wind model, is not kept. The last argument, mf, is the free enthalpy
+        at the wind base (as oppsed to the thermal enthalpy). By default it is
+        set to zero.
         */
-        WindState (const RelativisticWind& wind, double r, double u, double s=0.0);
+        WindState (const RelativisticWind& wind, double r, double u, double mf=0.0);
         WindState& setLuminosityPerSteradian (double L) { luminosityPerSteradian = L; return *this; }
         WindState& setInnerRadiusCm (double R) { innerRadiusCm = R; return *this; }
         WindState& setLeptonsPerBaryon (double Z) { leptonsPerBaryon = Z; return *this; }
@@ -65,7 +66,9 @@ public:
         double r; // radius (in units of inner boundary)
         double u; // four-velocity, u (in units of c)
         double g; // wind Lorentz factor
-        double m; // specific enthalpy mu (in units of c^2, not including rest-mass)
+        double w; // total enthalpy, 1 + m + n
+        double m; // specific enthalpy mu_t (in units of c^2, not including rest-mass)
+        double n; // specific enthalpy mu_f associated with free energy reservoir
         double p; // gas pressure (relative to density)
         double d; // gas density (equal to 1 / (r^2 u))
         double s; // gas specific entropy
@@ -106,15 +109,25 @@ public:
     void setInitialFourVelocity (double u0);
 
     /**
-    Set the entropy production rate, ds / dlogr.
+    Set the rate of conversion from free to internal enthalpy, heatingRate =
+    -d(log mf) / d(log r).
     */
-    void setEntropyProductionRate (double zeta);
+    void setHeatingRate (double zeta);
+
+    /**
+    Set the initial reservoir of free enthalpy, mu_f. To be physical, mu_f
+    must be smaller than the initial total enthalpy, i.e. eta / gamma = 1 +
+    mu_t + mu_f must be greater than 1.
+    */
+    void setInitialFreeEnthalpy (double mf);
 
     /**
     Integrate a wind profile to the given outer radius. The inner radius is
     always 1.0.
     */
     WindState integrate (double outerRadius) const;
+
+    std::vector<WindState> integrateRange (double outerRadius) const;
 
     /**
     Get the wind solution at the requested radii.
@@ -125,7 +138,8 @@ private:
     void resetSolverFunction();
     double specificWindPower = 10.0;
     double initialFourVelocity = 1.0;
-    double entropyProductionRate = 0.0; // ds / dlogr
+    double initialFreeEnthalpy = 0.0;
+    double heatingRate = 0.0; // -d(log mf) / d(log r)
     double adiabaticIndex = 4. / 3;
     mutable RungeKutta solver;
     mutable RungeKuttaVector vsolver;
