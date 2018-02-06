@@ -143,7 +143,7 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
     photon.position[0] = fluidPropagationTimeToRadius (r, theta) * physics.c / config.innerRadiusCm;
     photon.momentum = FourVector::nullWithUnitVector (UnitVector::sampleIsotropic());
     photon.momentum *= photonEnergy.sample();
-    photon.momentum.transformBy(-u);
+    photon.momentum.transformBy (-u);
 
     return photon;
 }
@@ -151,7 +151,7 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
 StructuredJetModel::Electron StructuredJetModel::generateElectron (const Photon& photon,
     RelativisticWind::WindState state) const
 {
-    const double uth = sampleElectronGammaBeta(state.temperature());
+    const double uth = sampleElectronGammaBeta (state.temperature());
     const auto sops = ScatteringOperations();
     return sops.sampleScatteredParticlesInFrame (state.fourVelocity(), photon.momentum, uth);
 }
@@ -184,14 +184,13 @@ double StructuredJetModel::jetStructureEffOfTheta (double theta) const
     if (config.jetStructureExponent == 0) return config.luminosityPerSteradian / config.specificWindPower;
     const double Q = std::pow (theta / config.jetOpeningAngle, config.jetStructureExponent);
     return std::exp (-Q) * config.luminosityPerSteradian / config.specificWindPower;
-    // return config.luminosityPerSteradian / config.specificWindPower;
 }
 
 double StructuredJetModel::sampleElectronGammaBeta (double kT) const
 {
     double urms = std::sqrt (kT < 1 ? 3 * kT : 12 * kT * kT); // approximate RMS four-velocity
 
-    if (false)
+    if (! config.approximateElectronEnergiesAsDelta)
     {
         auto pdf = Distributions::makeMaxwellian (kT, Distributions::Pdf);
         auto electronGammaBeta = RandomVariable (new SamplingScheme (pdf, urms * 0.01, urms * 20));
@@ -202,6 +201,9 @@ double StructuredJetModel::sampleElectronGammaBeta (double kT) const
 
 const TabulatedFunction& StructuredJetModel::getTableForTheta (double theta) const
 {
+    if (tableOfSolutions.size() == 1)
+        return tableOfSolutions.front();
+
     if (theta >= tableOfThetas.back())
     {
         throw std::runtime_error ("theta = " + std::to_string (theta) + " is outside tabulated solution");
@@ -230,6 +232,14 @@ void StructuredJetModel::tabulateWindAllAngles (double rmax)
 {
     const int N = config.tableResolutionTheta;
 
+    if (N == 1)
+    {
+        const double theta = 0.0;
+        tableOfSolutions.push_back (tabulateWindSolution (rmax, theta));
+        tableOfThetas.push_back (theta);
+        return;
+    }
+
     for (int n = 0; n < N; ++n)
     {
         const double theta = double(n) / (N - 1) * config.jetPolarBoundary;
@@ -256,5 +266,7 @@ RelativisticWind StructuredJetModel::makeWindSolver (double theta) const
     auto wind = RelativisticWind();
     wind.setSpecificWindPower (eta);
     wind.setInitialFourVelocity (1.0);
+    wind.setHeatingRate (config.heatingRate);
+    wind.setInitialFreeEnthalpy (config.initialFreeEnthalpy);
     return wind;
 }

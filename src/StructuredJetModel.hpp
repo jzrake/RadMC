@@ -13,6 +13,7 @@ public:
 
     struct Config
     {
+        bool approximateElectronEnergiesAsDelta = true;
         int tableResolutionRadius = 256;
         int tableResolutionTheta = 256;
         double outermostRadius = 1e4;
@@ -21,6 +22,8 @@ public:
         double jetStructureExponent = 1.0;
         double specificWindPower = 1e2;
         double luminosityPerSteradian = 1e48;
+        double initialFreeEnthalpy = 0.0;
+        double heatingRate = 0.0;
         double innerRadiusCm = 1e8;
         double leptonsPerBaryon = 1.0;
         double photonsPerBaryon = 1e4;

@@ -121,13 +121,18 @@ PYBIND11_MODULE (radmc, m)
     // ========================================================================
     // RelativisticWind
     // ========================================================================
+    // using array_t = py::array_t<double, py::array::c_style | py::array::forcecast>;
     using SRW = RelativisticWind;
+    py::bind_vector<std::vector<SRW::WindState>> (m, "std::vector<RelativisticWind.WindState>", py::module_local (true));
+
     auto srw = py::class_<SRW> (m, "RelativisticWind", py::dynamic_attr());
     srw.def (py::init<>());
     srw.def ("integrate", &SRW::integrate);
+    srw.def ("integrate_range", &SRW::integrateRange);
     srw.def ("set_specific_wind_power", &SRW::setSpecificWindPower);
     srw.def ("set_initial_four_velocity", &SRW::setInitialFourVelocity);
-    srw.def ("set_entropy_production_rate", &SRW::setEntropyProductionRate);
+    srw.def ("set_initial_free_enthalpy", &SRW::setInitialFreeEnthalpy);
+    srw.def ("set_heating_rate", &SRW::setHeatingRate);
 
     py::class_<SRW::WindState> (srw, "WindState")
     .def ("set_luminosity_per_steradian", &SRW::WindState::setLuminosityPerSteradian)
@@ -144,9 +149,11 @@ PYBIND11_MODULE (radmc, m)
     .def_readonly ("u", &SRW::WindState::u)
     .def_readonly ("g", &SRW::WindState::g)
     .def_readonly ("m", &SRW::WindState::m)
+    .def_readonly ("n", &SRW::WindState::n)
     .def_readonly ("p", &SRW::WindState::p)
     .def_readonly ("d", &SRW::WindState::d)
     .def_readonly ("s", &SRW::WindState::s);
+
 
     // ========================================================================
     // StructuredJetModel
@@ -169,6 +176,7 @@ PYBIND11_MODULE (radmc, m)
 
     py::class_<SJM::Config> (sjm, "Config")
     .def (py::init<>())
+    .def_readwrite ("approximate_electron_energies_as_delta", &SJM::Config::approximateElectronEnergiesAsDelta)
     .def_readwrite ("table_resolution_radius", &SJM::Config::tableResolutionRadius)
     .def_readwrite ("table_resolution_theta", &SJM::Config::tableResolutionTheta)
     .def_readwrite ("outermost_radius", &SJM::Config::outermostRadius)
@@ -177,6 +185,8 @@ PYBIND11_MODULE (radmc, m)
     .def_readwrite ("jet_structure_exponent", &SJM::Config::jetStructureExponent)
     .def_readwrite ("specific_wind_power", &SJM::Config::specificWindPower)
     .def_readwrite ("luminosity_per_steradian", &SJM::Config::luminosityPerSteradian)
+    .def_readwrite ("heating_rate", &SJM::Config::heatingRate)
+    .def_readwrite ("initial_free_enthalpy", &SJM::Config::initialFreeEnthalpy)
     .def_readwrite ("inner_radius_cm", &SJM::Config::innerRadiusCm)
     .def_readwrite ("leptons_per_baryon", &SJM::Config::leptonsPerBaryon)
     .def_readwrite ("photons_per_baryon", &SJM::Config::photonsPerBaryon);
