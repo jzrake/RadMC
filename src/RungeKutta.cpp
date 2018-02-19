@@ -141,7 +141,7 @@ std::valarray<double> RungeKuttaVector::integrate (double t)
     while (divisions < (1 << 20))
     {
         auto y2 = integrateSubdivided (yn, tn, dt, divisions * 2);
-        auto error = std::abs (y2 - y1) / std::abs (y2);
+        auto error = std::abs (y2 - y1); // / std::abs (y2);
 
         if (error.sum() < relativeError)
         {

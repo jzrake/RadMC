@@ -65,7 +65,7 @@ class DissipativeWindPlot(object):
 
         r = [s.r for s in solution]
         u = [s.u for s in solution]
-        n = [s.m for s in solution]
+        n = [s.n for s in solution]
         T = [s.temperature() for s in solution]
 
         self.axu.plot(r, u, label=label)
@@ -83,10 +83,11 @@ class DissipationRates(metaclass=Command):
         fig = plt.figure(figsize=[6, 10])
         plot = DissipativeWindPlot(fig)
         plot.plot_wind(0.00, 0.0, 'ideal')
-        plot.plot_wind(1e+1, 0.1, r'$\zeta=0.1$')
-        plot.plot_wind(1e+1, 0.2, r'$\zeta=0.2$')
-        plot.plot_wind(1e+1, 0.4, r'$\zeta=0.4$')
-        plot.plot_wind(1e+1, 0.8, r'$\zeta=0.8$')
+        plot.plot_wind(1, 0.01, r'$\zeta=0.01$')
+        plot.plot_wind(1, 0.1, r'$\zeta=0.1$')
+        plot.plot_wind(1, 0.2, r'$\zeta=0.2$')
+        plot.plot_wind(1, 0.4, r'$\zeta=0.4$')
+        plot.plot_wind(1, 0.8, r'$\zeta=0.8$')
         plot.axu.legend(loc='best')
 
         plt.show()
