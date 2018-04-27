@@ -264,9 +264,9 @@ RelativisticWind StructuredJetModel::makeWindSolver (double theta) const
 {
     const double eta = jetStructureEtaOfTheta (theta);
     auto wind = RelativisticWind();
-    wind.setSpecificWindPower (eta);
+    wind.setSpecificWindPower (eta, config.specificFreePower);
     wind.setInitialFourVelocity (1.0);
     wind.setHeatingRate (config.heatingRate);
-    wind.setInitialFreeEnthalpy (config.initialFreeEnthalpy);
+
     return wind;
 }

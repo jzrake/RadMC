@@ -17,8 +17,8 @@ double RichardsonCascade::TimeScales::getShortest()
 
 
 // ============================================================================
-RichardsonCascade::RichardsonCascade (double kmax, int numBins) :
-powerSpectrum (1, kmax, numBins, TabulatedFunction::useEqualBinWidthsLogarithmic)
+RichardsonCascade::RichardsonCascade (double kmax, int numBins)
+: powerSpectrum (1, kmax, numBins, TabulatedFunction::useEqualBinWidthsLogarithmic)
 {
     cascadePower = 1;
     photonMeanFreePath = 1e-3;

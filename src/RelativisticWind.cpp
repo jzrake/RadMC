@@ -6,32 +6,35 @@
 
 
 
-RelativisticWind::WindState::WindState (const RelativisticWind& wind, double r, double u, double mf) :
-r(r),
-u(u),
-specificWindPower (wind.specificWindPower),
-initialFourVelocity (wind.initialFourVelocity),
-adiabaticIndex (wind.adiabaticIndex)
+RelativisticWind::WindState::WindState (const RelativisticWind& wind, double r, double u, double ef)
+: r(r)
+, u(u)
+, specificWindPower (wind.specificWindPower)
+, initialFourVelocity (wind.initialFourVelocity)
+, adiabaticIndex (wind.adiabaticIndex)
 {
     const double gm = wind.adiabaticIndex;
     const double e0 = wind.specificWindPower;
     const double f0 = 1.0;  
 
     g = std::sqrt (1 + u * u);
-    w = e0 / g;
-    d = f0 / (r * r * u);
-    m = w - mf - 1;
-    n = mf;
-    p = m * d * (gm - 1) / gm;
-    s = p / std::pow (d, gm); // Note s is actually exp(entropy)
 
-    if (m < 0.0)
+    h = e0 / g;
+    n = ef / g;
+    w = h - n - 1;
+    p = d * w * (gm - 1) / gm;
+    e = ef;
+    d = f0 / (r * r * u);
+    p = d * w * (gm - 1) / gm;
+    s = std::log (p / std::pow (d, gm));
+
+    if (w < 0.0)
     {
         throw std::runtime_error (
             "Wind solution has negative enthalpy, mu = "
-            + std::to_string (m)
+            + std::to_string(w)
             + " at r = "
-            + std::to_string (r));
+            + std::to_string(r));
     }
 }
 
@@ -40,7 +43,7 @@ double RelativisticWind::WindState::temperature() const
     const double gm = adiabaticIndex;
     const double Z = leptonsPerBaryon;
     const double X = photonsPerBaryon;
-    const double T = (Z + P.mp / P.me) / (1 + Z + X) * m * (gm - 1) / gm;
+    const double T = (Z + P.mp / P.me) / (1 + Z + X) * w * (gm - 1) / gm;
     return T;
 }
 
@@ -64,7 +67,7 @@ double RelativisticWind::WindState::blackbodyPhotonsPerProton() const
 {
     const auto P = PhysicsConstants();
     const double Z = leptonsPerBaryon;
-    const double X = photonsPerBaryon;
+    const double X = photonsPerBaryon; // CHECK: why does this function use photonsPerBaryon?
     const double R = innerRadiusCm;
     const double F = luminosityPerSteradian / specificWindPower; // L = F eta (F is in erg / s)
     const double E0 = F / R / R / P.c; // base units of energy density (erg / cm^3)
@@ -85,6 +88,23 @@ double RelativisticWind::WindState::thomsonMeanFreePath (UnitVector nhat) const
     return dl / dt;
 }
 
+double RelativisticWind::WindState::thomsonMeanFreePathComoving() const
+{
+    const double ne = properNumberDensity (Species::electron);
+    return 1.0 / (ne * P.st);
+}
+
+double RelativisticWind::WindState::radiationViscosity() const
+{
+    const auto P = PhysicsConstants();
+    return w / (1 + w) * thomsonMeanFreePathComoving() * P.c;
+}
+
+double RelativisticWind::WindState::causallyConnectedScale() const
+{
+    return innerRadiusCm * r / g;
+}
+
 FourVector RelativisticWind::WindState::fourVelocity() const
 {
     return FourVector::fromGammaBetaAndUnitVector (u, propagationAngle);
@@ -99,9 +119,10 @@ RelativisticWind::RelativisticWind()
     resetSolverFunction();
 }
 
-void RelativisticWind::setSpecificWindPower (double eta)
+void RelativisticWind::setSpecificWindPower (double eta, double etaFree)
 {
     specificWindPower = eta;
+    specificFreePower = etaFree;
     resetSolverFunction();
 }
 
@@ -114,12 +135,6 @@ void RelativisticWind::setInitialFourVelocity (double u0)
 void RelativisticWind::setHeatingRate (double zeta)
 {
     heatingRate = zeta;
-    resetSolverFunction();
-}
-
-void RelativisticWind::setInitialFreeEnthalpy (double mf)
-{
-    initialFreeEnthalpy = mf;
     resetSolverFunction();
 }
 
@@ -136,14 +151,14 @@ RelativisticWind::WindState RelativisticWind::integrate (double outerRadius) con
 #else
     const double initialRadius = 1.0;
 
-    vsolver.setValues ({initialFourVelocity, initialFreeEnthalpy}, initialRadius);
+    vsolver.setValues ({initialFourVelocity, specificFreePower}, initialRadius);
     vsolver.integrate (outerRadius);
 
     const double r = vsolver.getT();
     const double u = vsolver.getY()[0];
-    const double n = vsolver.getY()[1];
+    const double f = vsolver.getY()[1];
 
-    return WindState (*this, r, u, n);
+    return WindState (*this, r, u, f);
 #endif
 }
 
@@ -182,7 +197,7 @@ std::vector<RelativisticWind::WindState> RelativisticWind::integrateTable (std::
 #else
     const double initialRadius = 1.0;
 
-    vsolver.setValues ({initialFourVelocity, initialFreeEnthalpy}, initialRadius);
+    vsolver.setValues ({initialFourVelocity, specificFreePower}, initialRadius);
     vsolver.integrate (radius.empty() ? 0.0 : radius[0]);
 
     auto solution = std::vector<WindState>();
@@ -193,8 +208,8 @@ std::vector<RelativisticWind::WindState> RelativisticWind::integrateTable (std::
 
         const double r = vsolver.getT();
         const double u = vsolver.getY()[0];
-        const double n = vsolver.getY()[1];
-        const auto S = WindState (*this, r, u, n);
+        const double e = vsolver.getY()[1]; // eta-free
+        const auto S = WindState (*this, r, u, e);
         solution.push_back(S);
     }
     return solution;
@@ -243,27 +258,30 @@ void RelativisticWind::resetSolverFunction()
     const double f0 = 1.0;
     const double e0 = specificWindPower;
     const double gm = adiabaticIndex;
-    const double dlogndlogr = -heatingRate;
+    const double dlogedlogr = -heatingRate;
 
     auto udot = [=] (std::valarray<double> y, double r) -> std::valarray<double>
     {
         const double u = y[0];
-        const double n = y[1];
+        const double e = y[1];
         const double d = f0 / (r * r * u);
         const double g = std::sqrt (1 + u * u);
-        const double w = e0 / g;
-        const double m = w - n - 1;
-        const double p = d * m * (gm - 1) / gm;
+        const double h = e0 / g;
+        const double n = e / g;
+        const double w = h - n - 1;
+        const double p = d * w * (gm - 1) / gm;
 
         const double v2 = u * u / g / g;
-        const double a2 = gm * p / (d * w);
+        const double a2 = gm * p / (d * h);
         const double M2 = v2 / a2;
 
-        const double dlogudlogr = (2 + n / m * dlogndlogr) / (M2 - 1);
+        const double dlogudlogr = (2 + n / w * dlogedlogr) / (M2 - 1) / (1 + v2 * n / w / (M2 - 1));
         const double dudr = dlogudlogr * u / r;
-        const double dndr = dlogndlogr * n / r;
+        const double dedr = dlogedlogr * e / r;
 
-        return {dudr, dndr};
+        // std::cout << dlogedlogr << " " << e << std::endl;
+
+        return {dudr, dedr};
     };
 
     vsolver.setTolerance (1e-8);

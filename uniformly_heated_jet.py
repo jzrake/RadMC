@@ -1,6 +1,5 @@
 
 
-
 class Command(type):
     commands = dict()
 
@@ -30,48 +29,127 @@ class DissipativeWindPlot(object):
     def __init__(self, fig):
         import matplotlib.pyplot as plt
 
-        self.axu = fig.add_subplot(3, 1, 1)
-        self.axn = fig.add_subplot(3, 1, 2)
-        self.axT = fig.add_subplot(3, 1, 3)
+        self.axu = fig.add_subplot(4, 1, 1)
+        self.axw = fig.add_subplot(4, 1, 2)
+        self.axn = fig.add_subplot(4, 1, 3)
+        self.axT = fig.add_subplot(4, 1, 4)
 
-        self.axu.set_xscale('log')
-        self.axn.set_xscale('log')
-        self.axT.set_xscale('log')
-        self.axu.set_yscale('log')
-        self.axn.set_yscale('log')
-        self.axT.set_yscale('log')
+        for ax in [self.axu, self.axw, self.axn, self.axT]:
+            ax.set_xscale('log')
+            ax.set_yscale('log')
 
-        self.axT.set_xlabel(r'$r / r_0$')
-        self.axu.set_ylabel(r'$u = \gamma \beta$')
-        self.axn.set_ylabel(r'$\mu_f$')
+        self.axT.set_xlabel(r'Radius relative to inner boundary, $r / r_0$')
+        self.axu.set_ylabel(r'Four-velocity, $u = \gamma \beta$')
+        self.axw.set_ylabel(r'Thermal enthalpy, $w_{\rm th}$')
+        self.axn.set_ylabel(r'Free enthalpy, $w_f$')
         self.axT.set_ylabel(r'$\theta = k T / m_e c^2$')
 
         plt.setp(self.axu.get_xticklabels(), visible=False)
+        plt.setp(self.axw.get_xticklabels(), visible=False)
         plt.setp(self.axn.get_xticklabels(), visible=False)
-        fig.suptitle("$n_\gamma / n_p = 10^4$, $\mu_f / \mu_t = 1/10$")
+        # fig.suptitle("$n_\gamma / n_p = 10^4$, $\mu_f / \mu_t = 1/10$")
+        fig.suptitle("Typical solutions for turbulent GRB jets")
 
     def configure(self, state):
-        return state.set_photons_per_baryon(1e4)
+        return state \
+        .set_luminosity_per_steradian(1e51) \
+        .set_inner_radius_cm(1e6) \
+        .set_leptons_per_baryon(1.0) \
+        .set_photons_per_baryon(1e4) \
 
-    def plot_wind(self, free_enthalpy, heating_rate, label):
-        import radmc
+    def plot_wind(self, free_power, heating_rate, label, ls='-', lw=2, c=None):
+        import radmc, numpy as np
 
         wind = radmc.RelativisticWind()
-        wind.set_specific_wind_power(100)
+        wind.set_specific_wind_power(100, free_power)
         wind.set_initial_four_velocity(1.0)
-        wind.set_initial_free_enthalpy(free_enthalpy)
         wind.set_heating_rate(heating_rate)
-        solution = [self.configure(s) for s in wind.integrate_range(1e10)]
+        solution = [self.configure(s) for s in wind.integrate_range(1e15)]
 
         r = [s.r for s in solution]
         u = [s.u for s in solution]
         n = [s.n for s in solution]
+        w = [s.w for s in solution]
         T = [s.temperature() for s in solution]
 
-        self.axu.plot(r, u, label=label)
-        self.axT.plot(r, T, label=label)
-        if True or heating_rate > 0:
-            self.axn.plot(r, n, label=label)
+        #self.axT.plot(r,  3 * np.array(r)**-0.300, ls='--', c='orange')
+        #self.axT.plot(r, 10 * np.array(r)**-0.666, ls='--', c='k')
+
+        self.axu.plot(r, u, label=label, ls=ls, lw=lw, c=c)
+        self.axw.plot(r, w, label=label, ls=ls, lw=lw, c=c)
+        self.axn.plot(r, n, label=label, ls=ls, lw=lw, c=c)
+        self.axT.plot(r, T, label=label, ls=ls, lw=lw, c=c)
+
+        self.axw.set_ylim(1e-3, 1e2)
+        self.axn.set_ylim(1e-4, 1e2)
+        #self.axT.set_ylim(1e-7, 1e2)
+
+
+
+class TurbulencePropertiesOverRadiusPlot(object):
+
+    """A class that runs wind dissipative hydrodynamic wind solutions.
+    """
+
+    def __init__(self, fig):
+        import matplotlib.pyplot as plt
+
+        self.axv = fig.add_subplot(4, 1, 1)
+        self.axl = fig.add_subplot(4, 1, 2)
+        self.axt = fig.add_subplot(4, 1, 3)
+        self.axq = fig.add_subplot(4, 1, 4)
+
+        for ax in [self.axv, self.axl, self.axt, self.axq]:
+            ax.set_xscale('log')
+            ax.set_yscale('log')
+
+        self.axv.set_ylabel(r'Turbulent velocity, $v_0 / c$')
+        self.axl.set_ylabel(r'Reynolds number, $\rm{Re}$')
+        self.axt.set_ylabel(r'Optical depth, $\tau$')
+        self.axq.set_ylabel(r'$\rm{Re} / \tau^{4/3}$')
+        self.axq.set_xlabel(r'Radius relative to inner boundary, $r / r_0$')
+        fig.suptitle("Turbulence properties for different heating rates")
+
+    def configure(self, state):
+        return state \
+        .set_luminosity_per_steradian(1e51) \
+        .set_inner_radius_cm(1e6) \
+        .set_leptons_per_baryon(1.0) \
+        .set_photons_per_baryon(1e4) \
+
+    def plot_wind(self, free_power, heating_rate, label, ls='-', lw=2, c=None):
+        import radmc, numpy as np
+
+        wind = radmc.RelativisticWind()
+        wind.set_specific_wind_power(100, free_power)
+        wind.set_initial_four_velocity(1.0)
+        wind.set_heating_rate(heating_rate)
+        solution = [self.configure(s) for s in wind.integrate_range(1e15)]
+
+        def eddy_optical_depth(s):
+            return s.causally_connected_scale() / s.thomson_mean_free_path_comoving()
+
+        def eddy_reynolds_number(s, v0):
+            physics = radmc.PhysicsConstants()
+            l0 = s.causally_connected_scale()
+            nu = s.radiation_viscosity()
+            return l0 * v0 * physics.c / nu
+
+        chi = 1.0
+        r = np.array([s.r for s in solution])
+        n = np.array([s.n for s in solution])
+        u = np.array([s.u for s in solution])
+        v = (n * chi * heating_rate * u / (1 + u**2)**0.5)**(1./3)
+        Re  = np.array([eddy_reynolds_number(s, v0) for s, v0 in zip(solution, v)])
+        tau = np.array([eddy_optical_depth(s) for s in solution])
+        self.axv.plot(r, v, label=label, ls=ls, lw=lw, c=c)
+        self.axl.plot(r, Re , label=label, ls=ls, lw=lw, c=c)
+        self.axt.plot(r, tau, label=label, ls=ls, lw=lw, c=c)
+        self.axq.plot(r, Re / tau**(4./3), label=label, ls=ls, lw=lw, c=c)
+
+        self.axl.axhline(1.0, linestyle='--', lw=1, alpha=0.1, c='k')
+        self.axt.axhline(1.0, linestyle='--', lw=1, alpha=0.1, c='k')
+        self.axq.axhline(1.0, linestyle='--', lw=1, alpha=0.1, c='k')
 
 
 
@@ -82,15 +160,42 @@ class DissipationRates(metaclass=Command):
 
         fig = plt.figure(figsize=[6, 10])
         plot = DissipativeWindPlot(fig)
-        plot.plot_wind(0.00, 0.0, 'ideal')
-        plot.plot_wind(1, 0.01, r'$\zeta=0.01$')
-        plot.plot_wind(1, 0.1, r'$\zeta=0.1$')
-        plot.plot_wind(1, 0.2, r'$\zeta=0.2$')
-        plot.plot_wind(1, 0.4, r'$\zeta=0.4$')
-        plot.plot_wind(1, 0.8, r'$\zeta=0.8$')
-        plot.axu.legend(loc='best')
+        plot.plot_wind(0., 0.0,  r'$\zeta=0$ (Ideal)', ls='--', lw=1)
+        plot.plot_wind(50, 1e-8, r'$\zeta=10^{-6}$', ls='-.', lw=1)
+        plot.plot_wind(50, 1e-3, r'$\zeta=10^{-3}$', lw=4./3)
+        plot.plot_wind(50, 1e-2, r'$\zeta=10^{-2}$', lw=16./9)
+        plot.plot_wind(50, 1e-1, r'$\zeta=10^{-1}$', lw=64./27)
+        plot.plot_wind(50, 1e+0, r'$\zeta=1.0$', lw=256./81)
+        plot.axu.legend(loc='best', ncol=2)
+        fig.subplots_adjust(top=0.94, bottom=0.06)
 
-        plt.show()
+        if kwargs['hardcopy']:
+            plt.savefig("DissipativeJetSolutions.pdf")
+        else:
+            plt.show()
+
+
+
+class TurbulenceProperties(metaclass=Command):
+
+    def __call__(self, **kwargs):
+        import matplotlib.pyplot as plt
+
+        fig = plt.figure(figsize=[6, 10])
+        plot = TurbulencePropertiesOverRadiusPlot(fig)
+        plot.plot_wind(0., 0.0, None)
+        plot.plot_wind(50, 1e-8, r'$\zeta=10^{-6}$', ls='-.', lw=1)
+        plot.plot_wind(50, 1e-3, r'$\zeta=10^{-3}$', lw=4./3)
+        plot.plot_wind(50, 1e-2, r'$\zeta=10^{-2}$', lw=16./9)
+        plot.plot_wind(50, 1e-1, r'$\zeta=10^{-1}$', lw=64./27)
+        plot.plot_wind(50, 1e+0, r'$\zeta=1.0$', lw=256./81)
+        plot.axv.legend(loc='lower left', ncol=2)
+        fig.subplots_adjust(top=0.94, bottom=0.06)
+
+        if kwargs['hardcopy']:
+            plt.savefig("TurbulenceProperties.pdf")            
+        else:
+            plt.show()
 
 
 
@@ -112,19 +217,19 @@ class HeatedJetModel(object):
             config.outermost_radius = 1e9
             config.jet_structure_exponent = 0
             config.specific_wind_power = 100
-            config.luminosity_per_steradian = 1e49
+            config.specific_free_power = 50.0 if heating_rate > 0.0 else 0.0
+            config.luminosity_per_steradian = 1e51
             config.heating_rate = heating_rate
-            config.initial_free_enthalpy = 10.0 if heating_rate > 0.0 else 0.0
             config.inner_radius_cm = 1e6
             config.leptons_per_baryon = 1.0
-            config.photons_per_baryon = 1e5
+            config.photons_per_baryon = 1e4
 
             self.file = h5py.File(filename, 'w')
             self.photon_number = 0
             self.write_config_to_file(config)
 
-            for attr in ['initial_free_enthalpy', 'heating_rate']:
-                print("{} ... {}".format(attr, getattr(config, attr)))
+            # for attr in ['initial_free_enthalpy', 'heating_rate']:
+            #     print("{} ... {}".format(attr, getattr(config, attr)))
 
             for key in ['time', 'radius', 'theta', 'energy', 'lag']:
                 if key not in self.file:
@@ -142,7 +247,7 @@ class HeatedJetModel(object):
         rp = self.model.approximate_photosphere(0.0)
         r0 = self.config.inner_radius_cm
         q = self.model.sample_theta(1.0)
-        r = rp / r0 * 0.01
+        r = rp / r0 * 0.0033
         p = self.model.generate_photon(r, q)
         n = 0
 
@@ -259,28 +364,39 @@ class HistogramPhotons(object, metaclass=Command):
         for f in file.split(','):
             bins, T = self.run(f, ax)
 
-        ax.plot(bins, [1e2 * e * self.wien_photon_spectrum(T, e) for e in bins], label='Wien')
-        ax.plot(bins, 5e4 * bins**1.4, label=r'$E^{1.4}$', lw=0.5, ls='--', c='k')
+            if f == 'zeta0.h5':
+                ax.plot(bins, [3e2 * e * self.wien_photon_spectrum(T, e) for e in bins], label='Wien', lw=1, c='k')
+                ax.plot(bins[:], 1e5 * bins[:]**1.4, label=r'$\nu^{1.4}$', lw=0.5, ls='--', c='k')
+
         ax.set_xscale('log')
         ax.set_yscale('log')
-        ax.set_xlabel(r"$h \nu$")
-        ax.set_ylabel(r"$dN / d\log\nu$")
-        ax.set_ylim(1e-3, 1e2)
-        ax.legend(loc='best')
-        plt.show()
+        ax.set_xlabel(r"$h \nu_{\rm obs} \ ({\rm MeV})$")
+        ax.set_ylabel(r"$dN / d\log\nu_{\rm obs}$")
+        # ax.set_ylim(1e-3, 1e3)
+        ax.set_ylim(1e-1, 1e4)
+        ax.legend(loc='upper left')
+        if kwargs['hardcopy']:
+            plt.savefig("PhotonSpectrum.pdf")
+        else:
+            plt.show()
 
     def run(self, file, ax):
         import matplotlib.pyplot as plt
         import numpy as np
 
         model = HeatedJetModel(file, restart=True)
-        E = model.file['energy'][:]
+        E = model.file['energy'][:] * 0.511
+
+        zeta = model.file['config']['heating_rate'].value
+        label = r"$\zeta={}$".format({0: r"0", 0.01: r"10^{-2}", 0.1: r"10^{-1}", 1.0: r"1"}[zeta])
 
         T = 1. / 3 * E.mean()
         bins = np.logspace(np.log10(min(E)), np.log10(max(E)), 100)
-        ax.hist(E, bins=bins, density=True, histtype='step', weights=E, label=file)
-        # ax.plot(bins, [1e2 * e * self.wien_photon_spectrum(T, e) for e in bins], label='Wien')
 
+        # bins = np.linspace(min(E), max(E), 100)
+        # ax.hist(E, bins=bins, density=True, histtype='step', weights=E, label=label)
+
+        ax.hist(E, bins=bins, histtype='step', label=label)
         return bins, T
 
     def wien_photon_spectrum(self, kT, nu):
@@ -290,6 +406,7 @@ class HistogramPhotons(object, metaclass=Command):
 
 
 if __name__ == "__main__":
+    from matplotlib import rc
     import argparse
     parser = argparse.ArgumentParser()
 
@@ -297,8 +414,18 @@ if __name__ == "__main__":
     parser.add_argument("--photons", type=int, default=1000)
     parser.add_argument("--restart", action='store_true')
     parser.add_argument("--heating_rate", type=float, default=0.0)
+    parser.add_argument("--hardcopy", action='store_true')
     parser.add_argument("--file", type=str, default='heated_jet.h5')
     args = parser.parse_args()
+
+
+    rc('font', **{'family':'sans-serif','sans-serif':['Helvetica'],'size':12})
+    rc('text', usetex=args.hardcopy)
+    rc('xtick', labelsize=12)
+    rc('ytick', labelsize=12)
+    rc('axes', labelsize=12)
+
+
 
     cmd = Command.get_command_class(args.command)()
     cmd(**vars(args))

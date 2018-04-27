@@ -131,7 +131,6 @@ PYBIND11_MODULE (radmc, m)
     srw.def ("integrate_range", &SRW::integrateRange);
     srw.def ("set_specific_wind_power", &SRW::setSpecificWindPower);
     srw.def ("set_initial_four_velocity", &SRW::setInitialFourVelocity);
-    srw.def ("set_initial_free_enthalpy", &SRW::setInitialFreeEnthalpy);
     srw.def ("set_heating_rate", &SRW::setHeatingRate);
 
     py::class_<SRW::WindState> (srw, "WindState")
@@ -144,12 +143,17 @@ PYBIND11_MODULE (radmc, m)
     .def ("proper_number_density", &SRW::WindState::properNumberDensity)
     .def ("blackbody_photons_per_proton", &SRW::WindState::blackbodyPhotonsPerProton)
     .def ("thomson_mean_free_path", &SRW::WindState::thomsonMeanFreePath)
+    .def ("thomson_mean_free_path_comoving", &SRW::WindState::thomsonMeanFreePathComoving)
+    .def ("radiation_viscosity", &SRW::WindState::radiationViscosity)
+    .def ("causally_connected_scale", &SRW::WindState::causallyConnectedScale)
     .def ("four_velocity", &SRW::WindState::fourVelocity)
     .def_readonly ("r", &SRW::WindState::r)
     .def_readonly ("u", &SRW::WindState::u)
     .def_readonly ("g", &SRW::WindState::g)
-    .def_readonly ("m", &SRW::WindState::m)
+    .def_readonly ("h", &SRW::WindState::h)
+    .def_readonly ("w", &SRW::WindState::w)
     .def_readonly ("n", &SRW::WindState::n)
+    .def_readonly ("e", &SRW::WindState::e)
     .def_readonly ("p", &SRW::WindState::p)
     .def_readonly ("d", &SRW::WindState::d)
     .def_readonly ("s", &SRW::WindState::s);
@@ -184,9 +188,9 @@ PYBIND11_MODULE (radmc, m)
     .def_readwrite ("jet_polar_boundary", &SJM::Config::jetPolarBoundary)
     .def_readwrite ("jet_structure_exponent", &SJM::Config::jetStructureExponent)
     .def_readwrite ("specific_wind_power", &SJM::Config::specificWindPower)
+    .def_readwrite ("specific_free_power", &SJM::Config::specificFreePower)
     .def_readwrite ("luminosity_per_steradian", &SJM::Config::luminosityPerSteradian)
     .def_readwrite ("heating_rate", &SJM::Config::heatingRate)
-    .def_readwrite ("initial_free_enthalpy", &SJM::Config::initialFreeEnthalpy)
     .def_readwrite ("inner_radius_cm", &SJM::Config::innerRadiusCm)
     .def_readwrite ("leptons_per_baryon", &SJM::Config::leptonsPerBaryon)
     .def_readwrite ("photons_per_baryon", &SJM::Config::photonsPerBaryon);
