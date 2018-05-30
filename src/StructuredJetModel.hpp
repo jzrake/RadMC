@@ -21,12 +21,17 @@ public:
         double jetPolarBoundary = 0.5;
         double jetStructureExponent = 1.0;
         double specificWindPower = 1e2;
-        double specificFreePower = 0.0;
         double luminosityPerSteradian = 1e48;
         double heatingRate = 0.0;
         double innerRadiusCm = 1e8;
         double leptonsPerBaryon = 1.0;
         double photonsPerBaryon = 1e4;
+    };
+
+    enum class Variable
+    {
+        FourVelocity,
+        SpecificWindPower,
     };
 
     /**
@@ -136,14 +141,15 @@ private:
     double jetStructureEtaOfTheta (double theta) const;
     double jetStructureEffOfTheta (double theta) const;
     double sampleElectronGammaBeta (double kT) const;
-    const TabulatedFunction& getTableForTheta (double theta) const;
-    TabulatedFunction tabulateWindSolution (double rmax, double theta) const;
+    const TabulatedFunction& getTableForTheta (double theta, Variable var) const;
+    TabulatedFunction tabulateWindSolution (double rmax, double theta, Variable var) const;
     void tabulateWindAllAngles (double rmax);
     RelativisticWind::WindState configureWindState (RelativisticWind::WindState state, FourVector position) const;
     RelativisticWind makeWindSolver (double theta) const;
 
     Config config;
-    std::vector<TabulatedFunction> tableOfSolutions;
+    std::vector<TabulatedFunction> tableOfSolutionsU;
+    std::vector<TabulatedFunction> tableOfSolutionsE;
     std::vector<double> tableOfThetas;
     PhysicsConstants physics;
 };

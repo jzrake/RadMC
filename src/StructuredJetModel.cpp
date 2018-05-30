@@ -99,12 +99,12 @@ double StructuredJetModel::fluidPropagationTimeToRadius (double r, double theta)
 {
     // TODO: Improve estimate here (account for acceleration)
 
-    if (r < jetStructureEtaOfTheta (theta))
-    {
-        throw std::runtime_error ("The radius is less than the saturation radius; "
-            "estimate of propagation time is wrong");
-    }
-    const auto& table = getTableForTheta (theta);
+    // if (r < jetStructureEtaOfTheta (theta))
+    // {
+    //     throw std::runtime_error ("The radius is less than the saturation radius; "
+    //         "estimate of propagation time is wrong");
+    // }
+    const auto& table = getTableForTheta (theta, Variable::FourVelocity);
     const double u = table.lookupFunctionValue(r);
     const double v = u / std::sqrt (1 + u * u);
     const double t = r / v * config.innerRadiusCm / physics.c;
@@ -135,7 +135,7 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
     const auto rhat = UnitVector (std::cos (theta), phi); // wind propagation angle
     const auto u = FourVector::fromGammaBetaAndUnitVector (state.u, rhat);
 
-    const double kT = state.temperature();
+    const double kT = state.photonTemperature();
     const auto photonEnergy = RandomVariable::diracDelta (3 * kT);
 
     auto photon = Photon();
@@ -151,7 +151,7 @@ StructuredJetModel::Photon StructuredJetModel::generatePhoton (double r, double 
 StructuredJetModel::Electron StructuredJetModel::generateElectron (const Photon& photon,
     RelativisticWind::WindState state) const
 {
-    const double uth = sampleElectronGammaBeta (state.temperature());
+    const double uth = sampleElectronGammaBeta (state.electronTemperature());
     const auto sops = ScatteringOperations();
     return sops.sampleScatteredParticlesInFrame (state.fourVelocity(), photon.momentum, uth);
 }
@@ -166,9 +166,10 @@ RelativisticWind::WindState StructuredJetModel::sampleWind (const FourVector& po
 {
     const double r = position.radius();
     const double t = position.theta();
-    const double u = getTableForTheta(t).lookupFunctionValue(r);
+    const double u = getTableForTheta(t, Variable::FourVelocity).lookupFunctionValue(r);
+    const double e = getTableForTheta(t, Variable::SpecificWindPower).lookupFunctionValue(r);
     auto wind = makeWindSolver(t);
-    auto state = RelativisticWind::WindState (wind, r, u);
+    auto state = RelativisticWind::WindState (e, u, r, config.heatingRate);
     return configureWindState (state, position);
 }
 
@@ -199,22 +200,34 @@ double StructuredJetModel::sampleElectronGammaBeta (double kT) const
     return urms;
 }
 
-const TabulatedFunction& StructuredJetModel::getTableForTheta (double theta) const
+const TabulatedFunction& StructuredJetModel::getTableForTheta (double theta, Variable var) const
 {
-    if (tableOfSolutions.size() == 1)
-        return tableOfSolutions.front();
+    if (tableOfSolutionsU.size() == 1)
+    {
+        switch (var)
+        {
+            case Variable::FourVelocity     : return tableOfSolutionsU.front();
+            case Variable::SpecificWindPower: return tableOfSolutionsE.front();
+        }
+    }
 
     if (theta >= tableOfThetas.back())
     {
         throw std::runtime_error ("theta = " + std::to_string (theta) + " is outside tabulated solution");
     }
     const int thetaBin = tableOfThetas.size() * theta / tableOfThetas.back();
-    assert (0 <= thetaBin && thetaBin < tableOfSolutions.size());
 
-    return tableOfSolutions[thetaBin];
+    assert (0 <= thetaBin && thetaBin < tableOfSolutionsU.size());
+    assert (0 <= thetaBin && thetaBin < tableOfSolutionsE.size());
+
+    switch (var)
+    {
+        case Variable::FourVelocity     : return tableOfSolutionsU[thetaBin];
+        case Variable::SpecificWindPower: return tableOfSolutionsE[thetaBin];
+    }
 }
 
-TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double theta) const
+TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double theta, Variable var) const
 {
     const int N = config.tableResolutionRadius;
     auto table = TabulatedFunction (1.0, rmax, N, TabulatedFunction::useEqualBinWidthsLogarithmic);
@@ -223,7 +236,11 @@ TabulatedFunction StructuredJetModel::tabulateWindSolution (double rmax, double 
 
     for (int i = 0; i < table.size(); ++i)
     {
-        table[i] = solution[i].u;
+        switch (var)
+        {
+            case Variable::FourVelocity     : table[i] = solution[i].u; break;
+            case Variable::SpecificWindPower: table[i] = solution[i].e; break;
+        }
     }
     return table;
 }
@@ -235,7 +252,8 @@ void StructuredJetModel::tabulateWindAllAngles (double rmax)
     if (N == 1)
     {
         const double theta = 0.0;
-        tableOfSolutions.push_back (tabulateWindSolution (rmax, theta));
+        tableOfSolutionsU.push_back (tabulateWindSolution (rmax, theta, Variable::FourVelocity));
+        tableOfSolutionsE.push_back (tabulateWindSolution (rmax, theta, Variable::SpecificWindPower));
         tableOfThetas.push_back (theta);
         return;
     }
@@ -243,7 +261,8 @@ void StructuredJetModel::tabulateWindAllAngles (double rmax)
     for (int n = 0; n < N; ++n)
     {
         const double theta = double(n) / (N - 1) * config.jetPolarBoundary;
-        tableOfSolutions.push_back (tabulateWindSolution (rmax, theta));
+        tableOfSolutionsU.push_back (tabulateWindSolution (rmax, theta, Variable::FourVelocity));
+        tableOfSolutionsE.push_back (tabulateWindSolution (rmax, theta, Variable::SpecificWindPower));
         tableOfThetas.push_back (theta);
     }
 }
@@ -264,9 +283,8 @@ RelativisticWind StructuredJetModel::makeWindSolver (double theta) const
 {
     const double eta = jetStructureEtaOfTheta (theta);
     auto wind = RelativisticWind();
-    wind.setSpecificWindPower (eta, config.specificFreePower);
-    wind.setInitialFourVelocity (1.0);
+    wind.setSpecificWindPower (eta);
+    wind.setInitialFourVelocity (10.0);
     wind.setHeatingRate (config.heatingRate);
-
     return wind;
 }

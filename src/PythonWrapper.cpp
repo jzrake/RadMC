@@ -17,7 +17,7 @@
 PYBIND11_MODULE (radmc, m)
 {
     namespace py = pybind11;
-    m.doc() = "Python module for radiative Monte Carlo calculations";
+    m.doc() = "Python module for radiation Monte Carlo calculations";
 
 
     // ========================================================================
@@ -132,27 +132,35 @@ PYBIND11_MODULE (radmc, m)
     srw.def ("set_specific_wind_power", &SRW::setSpecificWindPower);
     srw.def ("set_initial_four_velocity", &SRW::setInitialFourVelocity);
     srw.def ("set_heating_rate", &SRW::setHeatingRate);
+    srw.def ("get_heating_rate", &SRW::getHeatingRate);
 
     py::class_<SRW::WindState> (srw, "WindState")
-    .def ("set_luminosity_per_steradian", &SRW::WindState::setLuminosityPerSteradian)
-    .def ("set_inner_radius_cm", &SRW::WindState::setInnerRadiusCm)
-    .def ("set_leptons_per_baryon", &SRW::WindState::setLeptonsPerBaryon)
-    .def ("set_photons_per_baryon", &SRW::WindState::setPhotonsPerBaryon)
-    .def ("set_propagation_angle", &SRW::WindState::setPropagationAngle)
-    .def ("temperature", &SRW::WindState::temperature)
-    .def ("proper_number_density", &SRW::WindState::properNumberDensity)
-    .def ("blackbody_photons_per_proton", &SRW::WindState::blackbodyPhotonsPerProton)
-    .def ("thomson_mean_free_path", &SRW::WindState::thomsonMeanFreePath)
+    .def ("set_luminosity_per_steradian",    &SRW::WindState::setLuminosityPerSteradian)
+    .def ("set_inner_radius_cm",             &SRW::WindState::setInnerRadiusCm)
+    .def ("set_leptons_per_baryon",          &SRW::WindState::setLeptonsPerBaryon)
+    .def ("set_photons_per_baryon",          &SRW::WindState::setPhotonsPerBaryon)
+    .def ("radius",                          &SRW::WindState::radius)
+    .def ("d_loged_logr",                    &SRW::WindState::dLogedLogr)
+    .def ("d_logud_logr",                    &SRW::WindState::dLogudLogr)
+    .def ("d_logwd_logr",                    &SRW::WindState::dLogwdLogr)
+    .def ("proper_number_density",           &SRW::WindState::properNumberDensity)
+    .def ("jet_optical_depth",               &SRW::WindState::jetOpticalDepth)
+    .def ("blackbody_photons_per_proton",    &SRW::WindState::blackbodyPhotonsPerProton)
+    .def ("photon_temperature",              &SRW::WindState::photonTemperature)
+    .def ("compton_parameter",               &SRW::WindState::comptonParameter)
+    .def ("delta_theta",                     &SRW::WindState::deltaTheta)
+    .def ("electron_temperature",            &SRW::WindState::electronTemperature)
+    .def ("thomson_mean_free_path",          &SRW::WindState::thomsonMeanFreePath)
     .def ("thomson_mean_free_path_comoving", &SRW::WindState::thomsonMeanFreePathComoving)
-    .def ("radiation_viscosity", &SRW::WindState::radiationViscosity)
-    .def ("causally_connected_scale", &SRW::WindState::causallyConnectedScale)
-    .def ("four_velocity", &SRW::WindState::fourVelocity)
+    .def ("radiation_viscosity",             &SRW::WindState::radiationViscosity)
+    .def ("causally_connected_scale",        &SRW::WindState::causallyConnectedScale)
+    .def ("four_velocity",                   &SRW::WindState::fourVelocity)
+    .def ("set_propagation_angle",           &SRW::WindState::setPropagationAngle)
     .def_readonly ("r", &SRW::WindState::r)
     .def_readonly ("u", &SRW::WindState::u)
     .def_readonly ("g", &SRW::WindState::g)
     .def_readonly ("h", &SRW::WindState::h)
     .def_readonly ("w", &SRW::WindState::w)
-    .def_readonly ("n", &SRW::WindState::n)
     .def_readonly ("e", &SRW::WindState::e)
     .def_readonly ("p", &SRW::WindState::p)
     .def_readonly ("d", &SRW::WindState::d)
@@ -188,7 +196,6 @@ PYBIND11_MODULE (radmc, m)
     .def_readwrite ("jet_polar_boundary", &SJM::Config::jetPolarBoundary)
     .def_readwrite ("jet_structure_exponent", &SJM::Config::jetStructureExponent)
     .def_readwrite ("specific_wind_power", &SJM::Config::specificWindPower)
-    .def_readwrite ("specific_free_power", &SJM::Config::specificFreePower)
     .def_readwrite ("luminosity_per_steradian", &SJM::Config::luminosityPerSteradian)
     .def_readwrite ("heating_rate", &SJM::Config::heatingRate)
     .def_readwrite ("inner_radius_cm", &SJM::Config::innerRadiusCm)

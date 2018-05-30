@@ -202,7 +202,7 @@ class TurbulenceProperties(metaclass=Command):
 class HeatedJetModel(object):
 
     def __init__(self, filename, restart=False, heating_rate=0.0):
-        import h5py, radmc
+        import math, h5py, radmc
 
         if restart:
             self.file = h5py.File(filename, 'a')
@@ -214,22 +214,18 @@ class HeatedJetModel(object):
             config.approximate_electron_energies_as_delta = True
             config.table_resolution_radius = 256
             config.table_resolution_theta = 1
-            config.outermost_radius = 1e9
+            config.outermost_radius = 1e7
             config.jet_structure_exponent = 0
             config.specific_wind_power = 100
-            config.specific_free_power = 50.0 if heating_rate > 0.0 else 0.0
-            config.luminosity_per_steradian = 1e51
-            config.heating_rate = heating_rate
-            config.inner_radius_cm = 1e6
+            config.luminosity_per_steradian = 1e52 / 4 / math.pi
+            config.heating_rate = heating_rate * config.specific_wind_power
+            config.inner_radius_cm = 1e7
             config.leptons_per_baryon = 1.0
-            config.photons_per_baryon = 1e4
+            config.photons_per_baryon = 1e5
 
             self.file = h5py.File(filename, 'w')
             self.photon_number = 0
             self.write_config_to_file(config)
-
-            # for attr in ['initial_free_enthalpy', 'heating_rate']:
-            #     print("{} ... {}".format(attr, getattr(config, attr)))
 
             for key in ['time', 'radius', 'theta', 'energy', 'lag']:
                 if key not in self.file:
@@ -247,7 +243,7 @@ class HeatedJetModel(object):
         rp = self.model.approximate_photosphere(0.0)
         r0 = self.config.inner_radius_cm
         q = self.model.sample_theta(1.0)
-        r = rp / r0 * 0.0033
+        r = rp / r0 * 0.00420
         p = self.model.generate_photon(r, q)
         n = 0
 
@@ -357,51 +353,67 @@ class HistogramPhotons(object, metaclass=Command):
 
     def __call__(self, file='', **kwargs):
         import matplotlib.pyplot as plt
+        import numpy as np
 
-        fig = plt.figure()
+        fig = plt.figure(figsize=[7.35, 3.0])
         ax = fig.add_subplot(1, 1, 1)
 
-        for f in file.split(','):
-            bins, T = self.run(f, ax)
+        files = sorted(file.split(','), key=lambda f: HeatedJetModel(f, restart=True).file['config']['heating_rate'].value)
+        colors = plt.get_cmap('plasma')(np.linspace(.2, .85, len(files) + 1)[:-1])
 
-            if f == 'zeta0.h5':
-                ax.plot(bins, [3e2 * e * self.wien_photon_spectrum(T, e) for e in bins], label='Wien', lw=1, c='k')
-                ax.plot(bins[:], 1e5 * bins[:]**1.4, label=r'$\nu^{1.4}$', lw=0.5, ls='--', c='k')
+        for f, color in zip(files, colors):
+
+            if f == 'xi1.h5':
+                bins, kT = self.run(f, ax, color)
+            else:
+                self.run(f, ax, color)
+
+        ax.plot(bins, [3e3 * self.wien_photon_spectrum(kT, nu) for nu in bins],
+            ls=':',
+            lw=2,
+            c=color,
+            label=r'Wien')
 
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.set_xlabel(r"$h \nu_{\rm obs} \ ({\rm MeV})$")
         ax.set_ylabel(r"$dN / d\log\nu_{\rm obs}$")
-        # ax.set_ylim(1e-3, 1e3)
-        ax.set_ylim(1e-1, 1e4)
-        ax.legend(loc='upper left')
+        ax.set_xlim(1e-5, 3e3)
+        ax.set_ylim(4, 2e3)
+        ax.legend(loc='upper right', ncol=1)
+        fig.subplots_adjust(left=0.08, bottom=0.16, right=0.95, top=0.95, wspace=0.4, hspace=0.2)
+
         if kwargs['hardcopy']:
             plt.savefig("PhotonSpectrum.pdf")
         else:
             plt.show()
 
-    def run(self, file, ax):
+    def run(self, file, ax, color):
         import matplotlib.pyplot as plt
         import numpy as np
 
         model = HeatedJetModel(file, restart=True)
         E = model.file['energy'][:] * 0.511
+        w = np.ones_like(E) * 20000. / 300000.
+        xi = model.file['config']['heating_rate'].value / 100
+        label = r"$\tilde \xi={}$".format(self.xi_to_string(xi))
 
-        zeta = model.file['config']['heating_rate'].value
-        label = r"$\zeta={}$".format({0: r"0", 0.01: r"10^{-2}", 0.1: r"10^{-1}", 1.0: r"1"}[zeta])
-
-        T = 1. / 3 * E.mean()
         bins = np.logspace(np.log10(min(E)), np.log10(max(E)), 100)
-
-        # bins = np.linspace(min(E), max(E), 100)
-        # ax.hist(E, bins=bins, density=True, histtype='step', weights=E, label=label)
-
-        ax.hist(E, bins=bins, histtype='step', label=label)
-        return bins, T
+        ax.hist(E, bins=bins, weights=w, histtype='step', label=label, color=color, lw=0.5)
+        ax.hist(E, bins=bins, weights=w, histtype='stepfilled', color=color, alpha=0.1)
+        return bins, E.mean() / 3
 
     def wien_photon_spectrum(self, kT, nu):
         import math
         return 1. / (2 * kT**3) * nu**2 * math.exp(-nu / kT)
+
+    def xi_to_string(self, xi):
+        import numpy as np
+        if xi == 0.0:
+            return r"0"
+        if xi == 1.0:
+            return r"1"
+        return r"10^{{{:.0f}}}".format(np.log10(xi))
 
 
 
@@ -418,14 +430,11 @@ if __name__ == "__main__":
     parser.add_argument("--file", type=str, default='heated_jet.h5')
     args = parser.parse_args()
 
-
-    rc('font', **{'family':'sans-serif','sans-serif':['Helvetica'],'size':12})
     rc('text', usetex=args.hardcopy)
-    rc('xtick', labelsize=12)
-    rc('ytick', labelsize=12)
-    rc('axes', labelsize=12)
-
-
+    rc('font', **{'size':9})
+    rc('xtick', labelsize=9)
+    rc('ytick', labelsize=9)
+    rc('axes', labelsize=9)
 
     cmd = Command.get_command_class(args.command)()
     cmd(**vars(args))
